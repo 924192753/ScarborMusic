@@ -46,6 +46,7 @@ model User {
   songs         Song[]
   favorites     Favorite[]
   playlists     Playlist[]
+  comments      Comment[]
 
   @@index([email], name: "idx_users_email")
   @@index([username], name: "idx_users_username")
@@ -153,6 +154,7 @@ model Song {
   tags      SongTag[]
   favorites Favorite[]
   playlists PlaylistSong[]
+  comments  Comment[]
 
   @@index([userId], name: "idx_songs_user_id")
   @@index([categoryId], name: "idx_songs_category_id")
@@ -232,4 +234,40 @@ model PlaylistSong {
   @@id([playlistId, songId])
   @@index([playlistId, position], name: "idx_playlist_songs_order")
   @@map("playlist_songs")
+}
+
+// ─── CommentStatus ────────────────────────────────────────────────────────────
+
+enum CommentStatus {
+  VISIBLE
+  HIDDEN
+  DELETED
+}
+
+// ─── Comment ──────────────────────────────────────────────────────────────────
+
+model Comment {
+  id        String        @id @default(uuid()) @db.Char(36)
+  songId    String        @map("song_id") @db.Char(36)
+  userId    String        @map("user_id") @db.Char(36)
+  parentId  String?       @map("parent_id") @db.Char(36)
+  content   String        @db.Text
+  likeCount Int           @default(0) @map("like_count")
+  status    CommentStatus @default(VISIBLE)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  deletedAt DateTime?     @map("deleted_at")
+
+  song    Song      @relation(fields: [songId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([songId, status, parentId], name: "idx_comments_song_status_parent")
+  @@index([userId], name: "idx_comments_user_id")
+  @@index([parentId], name: "idx_comments_parent_id")
+  @@index([createdAt(sort: Desc)], name: "idx_comments_created_at")
+  @@index([likeCount(sort: Desc)], name: "idx_comments_like_count")
+  @@index([deletedAt], name: "idx_comments_deleted_at")
+  @@map("comments")
 }

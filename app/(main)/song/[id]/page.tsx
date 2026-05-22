@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import { CommentSection } from '@/components/comment/CommentSection'
 import { PlayButton } from '@/components/player/PlayButton'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -287,6 +288,10 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
           </>
         )}
       </div>
+
+      {/* Comments */}
+      <Separator className="my-8" />
+      <CommentSection songId={song.id} />
     </>
   )
 }

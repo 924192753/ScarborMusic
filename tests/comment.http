@@ -1,0 +1,180 @@
+### ScarborMusic — Comment System API Tests
+### Prerequisite: Login first
+
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0. Auth
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Login
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "testdev@example.com",
+  "password": "Test1234"
+}
+
+### Get current user
+GET {{baseUrl}}/api/auth/me
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Post Comments
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 1a. Post a top-level comment
+POST {{baseUrl}}/api/comments
+Content-Type: {{contentType}}
+
+{
+  "songId": "REPLACE_WITH_SONG_ID",
+  "content": "This is a great song! Really enjoying the beat."
+}
+
+### Expected: 201 { "data": { "id": "...", "content": "...", "user": {...} } }
+
+### 1b. Reply to a comment (replace COMMENT_ID)
+POST {{baseUrl}}/api/comments
+Content-Type: {{contentType}}
+
+{
+  "songId": "REPLACE_WITH_SONG_ID",
+  "content": "Totally agree with you!",
+  "parentId": "REPLACE_WITH_COMMENT_ID"
+}
+
+### 1c. Deep reply (level 2 — reply to a reply)
+POST {{baseUrl}}/api/comments
+Content-Type: {{contentType}}
+
+{
+  "songId": "REPLACE_WITH_SONG_ID",
+  "content": "This is a level 2 reply",
+  "parentId": "REPLACE_WITH_REPLY_ID"
+}
+
+### 1d. Empty content (should return 400)
+POST {{baseUrl}}/api/comments
+Content-Type: {{contentType}}
+
+{
+  "songId": "REPLACE_WITH_SONG_ID",
+  "content": ""
+}
+
+### 1e. Too long content (> 1000 chars, should return 400)
+POST {{baseUrl}}/api/comments
+Content-Type: {{contentType}}
+
+{
+  "songId": "REPLACE_WITH_SONG_ID",
+  "content": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+}
+
+### 1f. Unauthenticated (should return 401)
+POST {{baseUrl}}/api/comments
+Content-Type: {{contentType}}
+Cookie: access_token=invalid
+
+{
+  "songId": "REPLACE_WITH_SONG_ID",
+  "content": "Test"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Get Comments
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 2a. Latest comments (default)
+GET {{baseUrl}}/api/comments?songId=REPLACE_WITH_SONG_ID&page=1&pageSize=20
+
+### Expected: 200 { "data": { "comments": [...], "total": N, "pages": M } }
+### Each comment includes: user, replies (up to 3 levels deep)
+
+### 2b. Hot comments (sorted by likes)
+GET {{baseUrl}}/api/comments?songId=REPLACE_WITH_SONG_ID&sort=hot
+
+### 2c. Paginated
+GET {{baseUrl}}/api/comments?songId=REPLACE_WITH_SONG_ID&page=2&pageSize=5
+
+### 2d. Missing songId (should return 400)
+GET {{baseUrl}}/api/comments
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Edit & Delete Comments
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 3a. Edit comment (owner only)
+PATCH {{baseUrl}}/api/comments/REPLACE_WITH_COMMENT_ID
+Content-Type: {{contentType}}
+
+{
+  "content": "Updated: This is an even better song!"
+}
+
+### 3b. Edit someone else's comment (should return 403)
+PATCH {{baseUrl}}/api/comments/OTHER_USER_COMMENT_ID
+Content-Type: {{contentType}}
+
+{
+  "content": "Hacked content"
+}
+
+### 3c. Delete comment (soft delete)
+DELETE {{baseUrl}}/api/comments/REPLACE_WITH_COMMENT_ID
+
+### Expected: 200 { "message": "Comment deleted" }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Like / Unlike Comments
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 4a. Like a comment
+POST {{baseUrl}}/api/comments/REPLACE_WITH_COMMENT_ID/like
+
+### Expected: { "data": { "isLiked": true, "likeCount": 1 } }
+
+### 4b. Unlike (toggle — call again)
+POST {{baseUrl}}/api/comments/REPLACE_WITH_COMMENT_ID/like
+
+### Expected: { "data": { "isLiked": false, "likeCount": 0 } }
+
+### 4c. Unauthenticated like (should return 401)
+POST {{baseUrl}}/api/comments/REPLACE_WITH_COMMENT_ID/like
+Cookie: access_token=invalid
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Rate Limiting
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 5a-5e. Post 5 comments in quick succession (all should succeed)
+POST {{baseUrl}}/api/comments
+Content-Type: {{contentType}}
+
+{ "songId": "REPLACE_WITH_SONG_ID", "content": "Rate limit test 1" }
+###
+
+POST {{baseUrl}}/api/comments
+Content-Type: {{contentType}}
+
+{ "songId": "REPLACE_WITH_SONG_ID", "content": "Rate limit test 2" }
+
+### 5f. 6th comment in 30 seconds (should return 429)
+POST {{baseUrl}}/api/comments
+Content-Type: {{contentType}}
+
+{ "songId": "REPLACE_WITH_SONG_ID", "content": "Rate limit test 6 - should fail" }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. Cache Verification
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Verify comment count cache in Redis:
+# docker exec scarbormusic-redis redis-cli GET "comment:count:{songId}"
+# Expected: Total count as string
+
+# Verify like tracking:
+# docker exec scarbormusic-redis redis-cli SMEMBERS "comment:likes:{commentId}"
+# Expected: Set of userId strings

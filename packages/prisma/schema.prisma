@@ -47,6 +47,7 @@ model User {
   favorites     Favorite[]
   playlists     Playlist[]
   comments      Comment[]
+  auditLogs     AuditLog[]
 
   @@index([email], name: "idx_users_email")
   @@index([username], name: "idx_users_username")
@@ -270,4 +271,22 @@ model Comment {
   @@index([likeCount(sort: Desc)], name: "idx_comments_like_count")
   @@index([deletedAt], name: "idx_comments_deleted_at")
   @@map("comments")
+}
+// ─── AuditLog ─────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Char(36)
+  adminId    String   @map("admin_id") @db.Char(36)
+  action     String   @db.VarChar(64)
+  resource   String   @db.VarChar(64)
+  resourceId String?  @map("resource_id") @db.VarChar(64)
+  payload    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId], name: "idx_audit_logs_admin_id")
+  @@index([resource, resourceId], name: "idx_audit_logs_resource")
+  @@index([createdAt(sort: Desc)], name: "idx_audit_logs_created_at")
+  @@map("audit_logs")
 }

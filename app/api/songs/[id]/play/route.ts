@@ -1,5 +1,6 @@
 import { type NextRequest } from 'next/server'
 
+import { dailyPlaysKey } from '@/lib/admin-utils'
 import { handleApiError, notFound, ok } from '@/lib/api'
 import { getChartKeys } from '@/lib/cache'
 import { prisma } from '@/lib/prisma'
@@ -39,6 +40,7 @@ export async function POST(_request: NextRequest, { params }: RouteContext) {
     pipeline.zincrby(keys.daily, 1, id)
     pipeline.zincrby(keys.weekly, 1, id)
     pipeline.zincrby(keys.monthly, 1, id)
+    pipeline.incr(dailyPlaysKey())
 
     // Set expiry on daily/weekly/monthly keys (30 days)
     const THIRTY_DAYS = 30 * 24 * 60 * 60

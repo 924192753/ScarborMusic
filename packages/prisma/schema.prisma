@@ -161,6 +161,10 @@ model Song {
   @@index([likeCount(sort: Desc)], name: "idx_songs_like_count")
   @@index([createdAt(sort: Desc)], name: "idx_songs_created_at")
   @@index([deletedAt], name: "idx_songs_deleted_at")
+  @@index([title], name: "idx_songs_title")
+  @@index([artistName], name: "idx_songs_artist_name")
+  @@index([albumName], name: "idx_songs_album_name")
+  @@fulltext([title, artistName, albumName])
   @@map("songs")
 }
 

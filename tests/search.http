@@ -1,0 +1,113 @@
+### ScarborMusic — Search & Charts API Tests
+
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Search
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 1a. Search by song title
+GET {{baseUrl}}/api/search?q=midnight&limit=10
+
+### Expected:
+# { "data": { "songs": [...], "total": N, "page": 1, "pages": M } }
+
+### 1b. Search by artist name
+GET {{baseUrl}}/api/search?q=TestDev&limit=10
+
+### 1c. Search by album
+GET {{baseUrl}}/api/search?q=album&limit=10
+
+### 1d. Paginated search
+GET {{baseUrl}}/api/search?q=song&page=1&limit=5
+
+### 1e. Short query (< 3 chars — uses LIKE fallback)
+GET {{baseUrl}}/api/search?q=te&limit=10
+
+### 1f. Empty query (should return 400)
+GET {{baseUrl}}/api/search
+
+### 1g. No results
+GET {{baseUrl}}/api/search?q=xyznonexistent12345&limit=10
+
+### Expected: { "data": { "songs": [], "total": 0 } }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Search Suggestions
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 2a. Get suggestions for prefix
+GET {{baseUrl}}/api/search/suggest?q=mid
+
+### Expected:
+# { "data": [{ "text": "Midnight Dreams", "type": "song" }, ...] }
+# (cached in Redis for 60 seconds)
+
+### 2b. Artist name suggestions
+GET {{baseUrl}}/api/search/suggest?q=Test
+
+### 2c. Empty query (returns empty array)
+GET {{baseUrl}}/api/search/suggest
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Trigger Play Count (to populate charts)
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 3a. Play a song (login required)
+# First login
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "testdev@example.com",
+  "password": "Test1234"
+}
+
+### 3b. Play song multiple times (replace SONG_ID)
+POST {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID/play
+###
+POST {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID/play
+###
+POST {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID/play
+
+### Expected each time:
+# { "data": { "playCount": "N", "redisCount": N } }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Charts
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 4a. All-time charts (top 50)
+GET {{baseUrl}}/api/charts?type=all&limit=50
+
+### Expected:
+# { "data": { "type": "all", "charts": [{ "rank": 1, "score": N, "song": {...} }] } }
+
+### 4b. Daily charts
+GET {{baseUrl}}/api/charts?type=daily&limit=10
+
+### 4c. Weekly charts
+GET {{baseUrl}}/api/charts?type=weekly&limit=10
+
+### 4d. Monthly charts
+GET {{baseUrl}}/api/charts?type=monthly&limit=10
+
+### 4e. Charts with limit
+GET {{baseUrl}}/api/charts?type=all&limit=3
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Cache Verification
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Verify Redis cache via CLI:
+# docker exec scarbormusic-redis redis-cli ZRANGE song:charts 0 -1 WITHSCORES
+# Expected: [songId, score, songId, score, ...]
+
+# Verify search suggest cache:
+# docker exec scarbormusic-redis redis-cli GET "search:suggest:mid"
+# Expected: JSON array of suggestions
+
+# Verify chart cache TTL:
+# docker exec scarbormusic-redis redis-cli TTL "charts:all"
+# Expected: 1-300 (seconds remaining)

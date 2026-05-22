@@ -39,9 +39,9 @@ export default async function MainLayout({ children }: { children: React.ReactNo
           {/* Nav links */}
           <nav className="hidden items-center gap-1 md:flex">
             {[
+              { href: '/discover', label: 'Discover' },
               { href: '/songs', label: 'Songs' },
               { href: '/charts', label: 'Charts' },
-              { href: '/discover', label: 'Discover' },
             ].map(({ href, label }) => (
               <Link
                 key={href}
@@ -55,9 +55,32 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
           {/* Right side: search placeholder + auth */}
           <div className="flex items-center gap-2">
+            {/* Desktop search form */}
+            <form method="GET" action="/search" className="hidden md:flex">
+              <div className="relative">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <input
+                  name="q"
+                  placeholder="Search songs, artists…"
+                  className="h-8 w-44 rounded-md border bg-muted/30 pl-8 pr-3 text-sm outline-none ring-ring placeholder:text-muted-foreground focus:ring-1 lg:w-56"
+                />
+              </div>
+            </form>
+            {/* Mobile search icon */}
             <Link
               href="/search"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
               aria-label="Search"
             >
               <svg

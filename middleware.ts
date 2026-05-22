@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { verifyAccessToken } from '@/lib/jwt'
 
 // Routes that require authentication
-const PROTECTED_PREFIXES = ['/profile', '/admin']
+const PROTECTED_PREFIXES = ['/profile', '/admin', '/uploads']
 
 // Routes accessible only to ADMIN role
 const ADMIN_PREFIXES = ['/admin']
@@ -53,6 +53,8 @@ export const config = {
   matcher: [
     '/profile/:path*',
     '/admin/:path*',
+    '/uploads/:path*',
+    '/uploads',
     // Exclude Next.js internals and static files
     '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],

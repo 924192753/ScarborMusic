@@ -49,7 +49,8 @@ model User {
   updatedAt             DateTime  @updatedAt @map("updated_at")
   deletedAt             DateTime? @map("deleted_at")
 
-  role Role @relation(fields: [roleId], references: [id])
+  role          Role           @relation(fields: [roleId], references: [id])
+  uploadedFiles UploadedFile[]
 
   @@index([email], name: "idx_users_email")
   @@index([username], name: "idx_users_username")
@@ -67,7 +68,6 @@ model EmailVerificationCode {
   id        String   @id @default(uuid()) @db.Char(36)
   email     String   @db.VarChar(128)
   code      String   @db.VarChar(6)
-  // 'register' | 'reset_password'
   type      String   @default("register") @db.VarChar(32)
   expiresAt DateTime @map("expires_at")
   used      Boolean  @default(false)
@@ -76,4 +76,29 @@ model EmailVerificationCode {
   @@index([email], name: "idx_email_codes_email")
   @@index([expiresAt], name: "idx_email_codes_expires_at")
   @@map("email_verification_codes")
+}
+
+// =============================================================================
+// UploadedFile — Object storage file records
+// =============================================================================
+
+model UploadedFile {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @map("user_id") @db.Char(36)
+  fileName  String   @map("file_name") @db.VarChar(255)
+  objectKey String   @map("object_key") @db.VarChar(512) @unique
+  url       String   @db.VarChar(512)
+  mimeType  String   @map("mime_type") @db.VarChar(64)
+  // File size in bytes (BigInt for large audio files)
+  size      BigInt
+  // 'image' | 'audio'
+  fileType  String   @map("file_type") @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId], name: "idx_uploaded_files_user_id")
+  @@index([fileType], name: "idx_uploaded_files_file_type")
+  @@index([createdAt(sort: Desc)], name: "idx_uploaded_files_created_at")
+  @@map("uploaded_files")
 }

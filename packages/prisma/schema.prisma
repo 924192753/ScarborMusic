@@ -35,17 +35,19 @@ model Role {
 // =============================================================================
 
 model User {
-  id            String    @id @default(uuid()) @db.Char(36)
-  username      String    @unique @db.VarChar(32)
-  email         String    @unique @db.VarChar(128)
-  passwordHash  String    @map("password_hash") @db.VarChar(255)
-  avatarUrl     String?   @map("avatar_url") @db.VarChar(512)
-  emailVerified Boolean   @default(false) @map("email_verified")
-  isActive      Boolean   @default(true) @map("is_active")
-  roleId        String    @map("role_id") @db.Char(36)
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  deletedAt     DateTime? @map("deleted_at")
+  id                    String    @id @default(uuid()) @db.Char(36)
+  username              String    @unique @db.VarChar(32)
+  email                 String    @unique @db.VarChar(128)
+  passwordHash          String    @map("password_hash") @db.VarChar(255)
+  avatarUrl             String?   @map("avatar_url") @db.VarChar(512)
+  emailVerified         Boolean   @default(false) @map("email_verified")
+  isActive              Boolean   @default(true) @map("is_active")
+  roleId                String    @map("role_id") @db.Char(36)
+  refreshToken          String?   @map("refresh_token") @db.VarChar(512)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
 
   role Role @relation(fields: [roleId], references: [id])
 
@@ -55,4 +57,23 @@ model User {
   @@index([deletedAt], name: "idx_users_deleted_at")
   @@index([createdAt(sort: Desc)], name: "idx_users_created_at")
   @@map("users")
+}
+
+// =============================================================================
+// EmailVerificationCode — 邮箱验证码（Redis 缓存 + 数据库兜底）
+// =============================================================================
+
+model EmailVerificationCode {
+  id        String   @id @default(uuid()) @db.Char(36)
+  email     String   @db.VarChar(128)
+  code      String   @db.VarChar(6)
+  // 'register' | 'reset_password'
+  type      String   @default("register") @db.VarChar(32)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email], name: "idx_email_codes_email")
+  @@index([expiresAt], name: "idx_email_codes_expires_at")
+  @@map("email_verification_codes")
 }

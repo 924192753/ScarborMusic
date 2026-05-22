@@ -1,0 +1,177 @@
+### ScarborMusic — Auth API Tests
+### Compatible with: VS Code REST Client, JetBrains HTTP Client, httpYac
+### Base URL: http://localhost:3000
+
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Send Verification Code
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 1a. Send code for registration
+POST {{baseUrl}}/api/auth/send-code
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "type": "register"
+}
+
+### Expected Response (200):
+# {
+#   "success": true,
+#   "message": "Verification code sent to test@example.com...",
+#   "data": { "email": "test@example.com" }
+# }
+
+### 1b. Send code for password reset
+POST {{baseUrl}}/api/auth/send-code
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "type": "reset_password"
+}
+
+### 1c. Invalid email (should return 400)
+POST {{baseUrl}}/api/auth/send-code
+Content-Type: {{contentType}}
+
+{
+  "email": "not-an-email"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Register
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 2a. Register new user (replace CODE with the code from step 1)
+# In dev mode, check the server console for the 6-digit code
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "username": "testuser",
+  "password": "Test1234",
+  "confirmPassword": "Test1234",
+  "code": "REPLACE_WITH_ACTUAL_CODE"
+}
+
+### Expected Response (201):
+# {
+#   "success": true,
+#   "message": "Account created successfully",
+#   "data": {
+#     "user": { "id": "...", "email": "...", "username": "...", "role": "USER" },
+#     "accessToken": "eyJ..."
+#   }
+# }
+# Cookies set: access_token (15min), refresh_token (7 days)
+
+### 2b. Duplicate email (should return 409)
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "username": "anotheruser",
+  "password": "Test1234",
+  "confirmPassword": "Test1234",
+  "code": "000000"
+}
+
+### 2c. Weak password (should return 400)
+POST {{baseUrl}}/api/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "weak@example.com",
+  "username": "weakuser",
+  "password": "password",
+  "confirmPassword": "password",
+  "code": "123456"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Login
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 3a. Login with valid credentials
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "Test1234"
+}
+
+### Expected Response (200):
+# {
+#   "success": true,
+#   "message": "Login successful",
+#   "data": {
+#     "user": { "id": "...", "email": "...", "username": "...", "role": "USER" },
+#     "accessToken": "eyJ..."
+#   }
+# }
+
+### 3b. Wrong password (should return 401)
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "wrongpassword"
+}
+
+### 3c. Non-existent email (should return 401)
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "nobody@example.com",
+  "password": "Test1234"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Refresh Token
+# ─────────────────────────────────────────────────────────────────────────────
+# Note: The refresh_token cookie is set automatically by the login/register
+# responses. The REST Client will send it automatically if cookies are enabled.
+
+### 4a. Refresh access token (requires refresh_token cookie from login)
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+### Expected Response (200):
+# {
+#   "success": true,
+#   "message": "Token refreshed",
+#   "data": { "accessToken": "eyJ..." }
+# }
+
+### 4b. No refresh token (should return 401)
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: {{contentType}}
+Cookie: refresh_token=
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Logout
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 5a. Logout (requires access_token cookie)
+POST {{baseUrl}}/api/auth/logout
+Content-Type: {{contentType}}
+
+### Expected Response (200):
+# {
+#   "success": true,
+#   "message": "Logged out successfully",
+#   "data": null
+# }
+# Cookies cleared: access_token, refresh_token
+
+### 5b. Logout via GET (for browser link usage)
+GET {{baseUrl}}/api/auth/logout

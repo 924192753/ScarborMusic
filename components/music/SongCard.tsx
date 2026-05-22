@@ -8,6 +8,9 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import type { PlayerSong } from '@/store/player'
 
+import { AddToPlaylistButton } from './AddToPlaylistButton'
+import { FavoriteButton } from './FavoriteButton'
+
 interface SongCardSong {
   id: string
   title: string
@@ -40,9 +43,16 @@ interface SongCardProps {
   song: SongCardSong
   /** Full queue context for prev/next support */
   queue?: PlayerSong[]
+  showFavorite?: boolean
+  showAddToPlaylist?: boolean
 }
 
-export function SongCard({ song, queue }: SongCardProps) {
+export function SongCard({
+  song,
+  queue,
+  showFavorite = true,
+  showAddToPlaylist = true,
+}: SongCardProps) {
   const playerSong: PlayerSong | null = song.audioFile?.url
     ? {
         id: song.id,
@@ -104,6 +114,10 @@ export function SongCard({ song, queue }: SongCardProps) {
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{song.artistName}</p>
         </Link>
         <div className="mt-2 flex items-center justify-between gap-1">
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {showFavorite && <FavoriteButton songId={song.id} size="sm" />}
+            {showAddToPlaylist && <AddToPlaylistButton songId={song.id} size="sm" />}
+          </div>
           {song.category ? (
             <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
               {song.category.name}

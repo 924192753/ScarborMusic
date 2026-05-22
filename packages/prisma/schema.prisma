@@ -1,6 +1,5 @@
 // =============================================================================
-// ScarborMusic — Prisma Schema
-// Database: MySQL 8.4 | Prisma v7
+// ScarborMusic — Prisma Schema  (Prisma v7 / MySQL 8.4)
 // =============================================================================
 
 generator client {
@@ -11,9 +10,7 @@ datasource db {
   provider = "mysql"
 }
 
-// =============================================================================
-// Role
-// =============================================================================
+// ─── Role ─────────────────────────────────────────────────────────────────────
 
 model Role {
   id          String    @id @default(uuid()) @db.Char(36)
@@ -22,16 +19,12 @@ model Role {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   deletedAt   DateTime? @map("deleted_at")
-
-  users User[]
-
+  users       User[]
   @@index([deletedAt], name: "idx_roles_deleted_at")
   @@map("roles")
 }
 
-// =============================================================================
-// User
-// =============================================================================
+// ─── User ─────────────────────────────────────────────────────────────────────
 
 model User {
   id                    String    @id @default(uuid()) @db.Char(36)
@@ -51,6 +44,8 @@ model User {
   role          Role           @relation(fields: [roleId], references: [id])
   uploadedFiles UploadedFile[]
   songs         Song[]
+  favorites     Favorite[]
+  playlists     Playlist[]
 
   @@index([email], name: "idx_users_email")
   @@index([username], name: "idx_users_username")
@@ -60,9 +55,7 @@ model User {
   @@map("users")
 }
 
-// =============================================================================
-// EmailVerificationCode
-// =============================================================================
+// ─── EmailVerificationCode ────────────────────────────────────────────────────
 
 model EmailVerificationCode {
   id        String   @id @default(uuid()) @db.Char(36)
@@ -72,15 +65,12 @@ model EmailVerificationCode {
   expiresAt DateTime @map("expires_at")
   used      Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
-
   @@index([email], name: "idx_email_codes_email")
   @@index([expiresAt], name: "idx_email_codes_expires_at")
   @@map("email_verification_codes")
 }
 
-// =============================================================================
-// UploadedFile
-// =============================================================================
+// ─── UploadedFile ─────────────────────────────────────────────────────────────
 
 model UploadedFile {
   id        String   @id @default(uuid()) @db.Char(36)
@@ -93,9 +83,10 @@ model UploadedFile {
   fileType  String   @map("file_type") @db.VarChar(16)
   createdAt DateTime @default(now()) @map("created_at")
 
-  user       User   @relation(fields: [userId], references: [id])
-  audioSongs Song[] @relation("SongAudioFile")
-  coverSongs Song[] @relation("SongCoverFile")
+  user           User      @relation(fields: [userId], references: [id])
+  audioSongs     Song[]    @relation("SongAudioFile")
+  coverSongs     Song[]    @relation("SongCoverFile")
+  playlistCovers Playlist[] @relation("PlaylistCoverFile")
 
   @@index([userId], name: "idx_uploaded_files_user_id")
   @@index([fileType], name: "idx_uploaded_files_file_type")
@@ -103,9 +94,7 @@ model UploadedFile {
   @@map("uploaded_files")
 }
 
-// =============================================================================
-// Category
-// =============================================================================
+// ─── Category ─────────────────────────────────────────────────────────────────
 
 model Category {
   id          Int      @id @default(autoincrement())
@@ -114,15 +103,11 @@ model Category {
   description String?  @db.VarChar(255)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-
-  songs Song[]
-
+  songs       Song[]
   @@map("categories")
 }
 
-// =============================================================================
-// Tag
-// =============================================================================
+// ─── Tag ──────────────────────────────────────────────────────────────────────
 
 model Tag {
   id        Int      @id @default(autoincrement())
@@ -130,25 +115,17 @@ model Tag {
   slug      String   @unique @db.VarChar(64)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
-  songs SongTag[]
-
+  songs     SongTag[]
   @@map("tags")
 }
 
-// =============================================================================
-// Song Status
-// =============================================================================
+// ─── Song ─────────────────────────────────────────────────────────────────────
 
 enum SongStatus {
   DRAFT
   PUBLISHED
   HIDDEN
 }
-
-// =============================================================================
-// Song
-// =============================================================================
 
 model Song {
   id          String     @id @default(uuid()) @db.Char(36)
@@ -157,7 +134,6 @@ model Song {
   lyrics      String?    @db.LongText
   artistName  String     @map("artist_name") @db.VarChar(255)
   albumName   String?    @map("album_name") @db.VarChar(255)
-  // Duration in seconds
   duration    Int?
   playCount   BigInt     @default(0) @map("play_count")
   likeCount   Int        @default(0) @map("like_count")
@@ -170,11 +146,13 @@ model Song {
   updatedAt   DateTime   @updatedAt @map("updated_at")
   deletedAt   DateTime?  @map("deleted_at")
 
-  audioFile UploadedFile? @relation("SongAudioFile", fields: [audioFileId], references: [id])
-  coverFile UploadedFile? @relation("SongCoverFile", fields: [coverFileId], references: [id])
-  category  Category?     @relation(fields: [categoryId], references: [id])
-  user      User          @relation(fields: [userId], references: [id])
+  audioFile UploadedFile?  @relation("SongAudioFile", fields: [audioFileId], references: [id])
+  coverFile UploadedFile?  @relation("SongCoverFile", fields: [coverFileId], references: [id])
+  category  Category?      @relation(fields: [categoryId], references: [id])
+  user      User           @relation(fields: [userId], references: [id])
   tags      SongTag[]
+  favorites Favorite[]
+  playlists PlaylistSong[]
 
   @@index([userId], name: "idx_songs_user_id")
   @@index([categoryId], name: "idx_songs_category_id")
@@ -186,17 +164,68 @@ model Song {
   @@map("songs")
 }
 
-// =============================================================================
-// SongTag (Many-to-Many)
-// =============================================================================
-
 model SongTag {
   songId String @map("song_id") @db.Char(36)
   tagId  Int    @map("tag_id")
-
-  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
-  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
+  song   Song   @relation(fields: [songId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
   @@id([songId, tagId])
   @@map("song_tags")
+}
+
+// ─── Favorite ─────────────────────────────────────────────────────────────────
+
+model Favorite {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @map("user_id") @db.Char(36)
+  songId    String   @map("song_id") @db.Char(36)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, songId], name: "unique_user_song_favorite")
+  @@index([userId], name: "idx_favorites_user_id")
+  @@index([createdAt(sort: Desc)], name: "idx_favorites_created_at")
+  @@map("favorites")
+}
+
+// ─── Playlist ─────────────────────────────────────────────────────────────────
+
+model Playlist {
+  id          String    @id @default(uuid()) @db.Char(36)
+  userId      String    @map("user_id") @db.Char(36)
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
+  coverFileId String?   @map("cover_file_id") @db.Char(36)
+  isPublic    Boolean   @default(true) @map("is_public")
+  songCount   Int       @default(0) @map("song_count")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coverFile UploadedFile? @relation("PlaylistCoverFile", fields: [coverFileId], references: [id])
+  songs     PlaylistSong[]
+
+  @@index([userId], name: "idx_playlists_user_id")
+  @@index([isPublic], name: "idx_playlists_is_public")
+  @@index([deletedAt], name: "idx_playlists_deleted_at")
+  @@map("playlists")
+}
+
+// ─── PlaylistSong ─────────────────────────────────────────────────────────────
+
+model PlaylistSong {
+  playlistId String   @map("playlist_id") @db.Char(36)
+  songId     String   @map("song_id") @db.Char(36)
+  position   Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  song     Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, songId])
+  @@index([playlistId, position], name: "idx_playlist_songs_order")
+  @@map("playlist_songs")
 }

@@ -1,0 +1,167 @@
+### ScarborMusic — Playlist & Favorites API Tests
+### Prerequisite: Login first
+
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0. Auth
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Login
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "testdev@example.com",
+  "password": "Test1234"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Playlist CRUD
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 1a. Create playlist (public)
+POST {{baseUrl}}/api/playlists
+Content-Type: {{contentType}}
+
+{
+  "name": "My Chill Playlist",
+  "description": "Songs for relaxing",
+  "isPublic": true
+}
+
+### 1b. Create private playlist
+POST {{baseUrl}}/api/playlists
+Content-Type: {{contentType}}
+
+{
+  "name": "Private Stash",
+  "isPublic": false
+}
+
+### 1c. List my playlists
+GET {{baseUrl}}/api/playlists?mine=true
+
+### 1d. List all public playlists
+GET {{baseUrl}}/api/playlists
+
+### 1e. Get playlist detail (replace PLAYLIST_ID)
+GET {{baseUrl}}/api/playlists/REPLACE_WITH_PLAYLIST_ID
+
+### 1f. Update playlist
+PATCH {{baseUrl}}/api/playlists/REPLACE_WITH_PLAYLIST_ID
+Content-Type: {{contentType}}
+
+{
+  "name": "Updated Name",
+  "description": "Updated description",
+  "isPublic": true
+}
+
+### 1g. Delete playlist (soft delete)
+DELETE {{baseUrl}}/api/playlists/REPLACE_WITH_PLAYLIST_ID
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Playlist Songs
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 2a. Add song to playlist
+POST {{baseUrl}}/api/playlists/REPLACE_WITH_PLAYLIST_ID/songs
+Content-Type: {{contentType}}
+
+{
+  "songId": "REPLACE_WITH_SONG_ID"
+}
+
+### Expected: 200 { "success": true, "data": { playlistId, songId, position } }
+
+### 2b. Add duplicate song (should return 409)
+POST {{baseUrl}}/api/playlists/REPLACE_WITH_PLAYLIST_ID/songs
+Content-Type: {{contentType}}
+
+{
+  "songId": "REPLACE_WITH_SONG_ID"
+}
+
+### 2c. Check if song is in playlist
+GET {{baseUrl}}/api/playlists/REPLACE_WITH_PLAYLIST_ID/songs?songId=REPLACE_WITH_SONG_ID
+
+### 2d. Reorder playlist songs
+PATCH {{baseUrl}}/api/playlists/REPLACE_WITH_PLAYLIST_ID/songs/reorder
+Content-Type: {{contentType}}
+
+{
+  "songs": [
+    { "songId": "SONG_ID_1", "position": 0 },
+    { "songId": "SONG_ID_2", "position": 1 },
+    { "songId": "SONG_ID_3", "position": 2 }
+  ]
+}
+
+### 2e. Remove song from playlist
+DELETE {{baseUrl}}/api/playlists/REPLACE_WITH_PLAYLIST_ID/songs/REPLACE_WITH_SONG_ID
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Favorites
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 3a. Favorite a song
+POST {{baseUrl}}/api/favorites
+Content-Type: {{contentType}}
+
+{
+  "songId": "REPLACE_WITH_SONG_ID"
+}
+
+### Expected: 201 { "success": true, "data": { id, songId, createdAt } }
+
+### 3b. Check favorite status
+GET {{baseUrl}}/api/favorites/REPLACE_WITH_SONG_ID
+
+### Expected: { "data": { "isFavorited": true, "favorite": { ... } } }
+
+### 3c. List favorites (paginated)
+GET {{baseUrl}}/api/favorites?page=1&pageSize=20
+
+### 3d. Duplicate favorite (should return 409)
+POST {{baseUrl}}/api/favorites
+Content-Type: {{contentType}}
+
+{
+  "songId": "REPLACE_WITH_SONG_ID"
+}
+
+### 3e. Unfavorite a song
+DELETE {{baseUrl}}/api/favorites/REPLACE_WITH_SONG_ID
+
+### Expected: 200 { "success": true, "message": "Song removed from favorites" }
+
+### 3f. Check after unfavorite
+GET {{baseUrl}}/api/favorites/REPLACE_WITH_SONG_ID
+
+### Expected: { "data": { "isFavorited": false } }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Permission Tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 4a. Access someone else's private playlist (should return 404)
+GET {{baseUrl}}/api/playlists/PRIVATE_PLAYLIST_BY_OTHER_USER
+
+### 4b. Edit someone else's playlist (should return 403)
+PATCH {{baseUrl}}/api/playlists/PLAYLIST_BY_OTHER_USER
+Content-Type: {{contentType}}
+
+{
+  "name": "Hacked"
+}
+
+### 4c. Unauthenticated favorite (should return 401)
+POST {{baseUrl}}/api/favorites
+Content-Type: {{contentType}}
+Cookie: access_token=invalid
+
+{
+  "songId": "ANY_SONG_ID"
+}

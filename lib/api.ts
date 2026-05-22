@@ -2,6 +2,15 @@ import { type NextRequest, NextResponse } from 'next/server'
 
 import { type ZodSchema } from 'zod'
 
+// ─── BigInt Serialization ─────────────────────────────────────────────────────
+// JSON.stringify cannot serialize BigInt natively. This helper converts BigInt
+// values to strings before passing to NextResponse.json().
+function serialize<T>(data: T): T {
+  return JSON.parse(
+    JSON.stringify(data, (_, value) => (typeof value === 'bigint' ? value.toString() : value)),
+  ) as T
+}
+
 // ─── Response Types ───────────────────────────────────────────────────────────
 
 export interface ApiSuccess<T = unknown> {
@@ -21,11 +30,11 @@ export type ApiResponse<T = unknown> = ApiSuccess<T> | ApiError
 // ─── Response Builders ────────────────────────────────────────────────────────
 
 export function ok<T>(data: T, message = 'ok', status = 200): NextResponse<ApiSuccess<T>> {
-  return NextResponse.json({ success: true, message, data }, { status })
+  return NextResponse.json({ success: true, message, data: serialize(data) }, { status })
 }
 
 export function created<T>(data: T, message = 'Created'): NextResponse<ApiSuccess<T>> {
-  return NextResponse.json({ success: true, message, data }, { status: 201 })
+  return NextResponse.json({ success: true, message, data: serialize(data) }, { status: 201 })
 }
 
 export function badRequest(

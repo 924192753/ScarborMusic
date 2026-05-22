@@ -1,0 +1,172 @@
+### ScarborMusic — Song API Tests
+### Prerequisite: Login first → POST http://localhost:3000/api/auth/login
+### Then upload an audio file → POST /api/upload/presigned-url (get audioFileId)
+
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 0. Auth (run first)
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 0a. Login
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "testdev@example.com",
+  "password": "Test1234"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Lookup endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 1a. Get all categories
+GET {{baseUrl}}/api/categories
+
+### 1b. Get all tags
+GET {{baseUrl}}/api/tags
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Create Song (replace AUDIO_FILE_ID with real ID from upload)
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 2a. Create published song (valid)
+POST {{baseUrl}}/api/songs
+Content-Type: {{contentType}}
+
+{
+  "title": "Midnight Dreams",
+  "artistName": "TestDev",
+  "albumName": "Test Album",
+  "description": "A test song created via API",
+  "lyrics": "Verse 1\nDreaming in the midnight glow...",
+  "duration": 210,
+  "status": "PUBLISHED",
+  "audioFileId": "REPLACE_WITH_REAL_AUDIO_FILE_ID",
+  "categoryId": 1,
+  "tagIds": [1, 3]
+}
+
+### 2b. Create draft song (no cover)
+POST {{baseUrl}}/api/songs
+Content-Type: {{contentType}}
+
+{
+  "title": "Draft Track",
+  "artistName": "TestDev",
+  "status": "DRAFT",
+  "audioFileId": "REPLACE_WITH_REAL_AUDIO_FILE_ID",
+  "tagIds": []
+}
+
+### 2c. Missing required field (should return 400)
+POST {{baseUrl}}/api/songs
+Content-Type: {{contentType}}
+
+{
+  "title": "No Artist",
+  "status": "PUBLISHED",
+  "audioFileId": "REPLACE_WITH_REAL_AUDIO_FILE_ID"
+}
+
+### 2d. Unauthenticated (should return 401)
+POST {{baseUrl}}/api/songs
+Content-Type: {{contentType}}
+Cookie: access_token=invalid
+
+{
+  "title": "Test Song",
+  "artistName": "Test Artist",
+  "audioFileId": "REPLACE_WITH_REAL_AUDIO_FILE_ID"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. List Songs
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 3a. List published songs (default)
+GET {{baseUrl}}/api/songs
+
+### 3b. Filter by category
+GET {{baseUrl}}/api/songs?categoryId=1
+
+### 3c. Filter by tag
+GET {{baseUrl}}/api/songs?tagId=1
+
+### 3d. Sort by popular
+GET {{baseUrl}}/api/songs?sort=popular
+
+### 3e. Paginate
+GET {{baseUrl}}/api/songs?page=1&pageSize=5
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Get Song by ID (replace SONG_ID)
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 4a. Get song
+GET {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID
+
+### 4b. Non-existent song (should return 404)
+GET {{baseUrl}}/api/songs/00000000-0000-0000-0000-000000000000
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Update Song
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 5a. Update title and description
+PATCH {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID
+Content-Type: {{contentType}}
+
+{
+  "title": "Updated Title",
+  "description": "Updated description",
+  "status": "PUBLISHED"
+}
+
+### 5b. Add tags
+PATCH {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID
+Content-Type: {{contentType}}
+
+{
+  "tagIds": [1, 2, 3]
+}
+
+### 5c. Unauthorized update (should return 401)
+PATCH {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID
+Content-Type: {{contentType}}
+Cookie: access_token=invalid
+
+{
+  "title": "Hacked"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. Play Count
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 6a. Increment play count
+POST {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID/play
+
+### Expected:
+# { "success": true, "data": { "playCount": "1", "redisCount": 1 } }
+
+### 6b. Multiple plays (call multiple times)
+POST {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID/play
+###
+
+POST {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID/play
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. Delete Song (soft delete)
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 7a. Delete song
+DELETE {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID
+
+### Expected:
+# { "success": true, "message": "Song deleted successfully" }
+
+### 7b. Get deleted song (should return 404)
+GET {{baseUrl}}/api/songs/REPLACE_WITH_SONG_ID

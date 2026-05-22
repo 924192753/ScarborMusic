@@ -1,7 +1,6 @@
 // =============================================================================
 // ScarborMusic — Prisma Schema
-// Database: MySQL 8.4
-// Connection URL is configured in prisma.config.ts (Prisma v7)
+// Database: MySQL 8.4 | Prisma v7
 // =============================================================================
 
 generator client {
@@ -13,7 +12,7 @@ datasource db {
 }
 
 // =============================================================================
-// Role — System roles (ADMIN, USER)
+// Role
 // =============================================================================
 
 model Role {
@@ -31,7 +30,7 @@ model Role {
 }
 
 // =============================================================================
-// User — Platform users
+// User
 // =============================================================================
 
 model User {
@@ -51,6 +50,7 @@ model User {
 
   role          Role           @relation(fields: [roleId], references: [id])
   uploadedFiles UploadedFile[]
+  songs         Song[]
 
   @@index([email], name: "idx_users_email")
   @@index([username], name: "idx_users_username")
@@ -61,7 +61,7 @@ model User {
 }
 
 // =============================================================================
-// EmailVerificationCode — 邮箱验证码（Redis 缓存 + 数据库兜底）
+// EmailVerificationCode
 // =============================================================================
 
 model EmailVerificationCode {
@@ -79,7 +79,7 @@ model EmailVerificationCode {
 }
 
 // =============================================================================
-// UploadedFile — Object storage file records
+// UploadedFile
 // =============================================================================
 
 model UploadedFile {
@@ -89,16 +89,114 @@ model UploadedFile {
   objectKey String   @map("object_key") @db.VarChar(512) @unique
   url       String   @db.VarChar(512)
   mimeType  String   @map("mime_type") @db.VarChar(64)
-  // File size in bytes (BigInt for large audio files)
   size      BigInt
-  // 'image' | 'audio'
   fileType  String   @map("file_type") @db.VarChar(16)
   createdAt DateTime @default(now()) @map("created_at")
 
-  user User @relation(fields: [userId], references: [id])
+  user       User   @relation(fields: [userId], references: [id])
+  audioSongs Song[] @relation("SongAudioFile")
+  coverSongs Song[] @relation("SongCoverFile")
 
   @@index([userId], name: "idx_uploaded_files_user_id")
   @@index([fileType], name: "idx_uploaded_files_file_type")
   @@index([createdAt(sort: Desc)], name: "idx_uploaded_files_created_at")
   @@map("uploaded_files")
+}
+
+// =============================================================================
+// Category
+// =============================================================================
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(64)
+  slug        String   @unique @db.VarChar(64)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  songs Song[]
+
+  @@map("categories")
+}
+
+// =============================================================================
+// Tag
+// =============================================================================
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(64)
+  slug      String   @unique @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  songs SongTag[]
+
+  @@map("tags")
+}
+
+// =============================================================================
+// Song Status
+// =============================================================================
+
+enum SongStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+}
+
+// =============================================================================
+// Song
+// =============================================================================
+
+model Song {
+  id          String     @id @default(uuid()) @db.Char(36)
+  title       String     @db.VarChar(255)
+  description String?    @db.Text
+  lyrics      String?    @db.LongText
+  artistName  String     @map("artist_name") @db.VarChar(255)
+  albumName   String?    @map("album_name") @db.VarChar(255)
+  // Duration in seconds
+  duration    Int?
+  playCount   BigInt     @default(0) @map("play_count")
+  likeCount   Int        @default(0) @map("like_count")
+  status      SongStatus @default(DRAFT)
+  audioFileId String?    @map("audio_file_id") @db.Char(36)
+  coverFileId String?    @map("cover_file_id") @db.Char(36)
+  categoryId  Int?       @map("category_id")
+  userId      String     @map("user_id") @db.Char(36)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  deletedAt   DateTime?  @map("deleted_at")
+
+  audioFile UploadedFile? @relation("SongAudioFile", fields: [audioFileId], references: [id])
+  coverFile UploadedFile? @relation("SongCoverFile", fields: [coverFileId], references: [id])
+  category  Category?     @relation(fields: [categoryId], references: [id])
+  user      User          @relation(fields: [userId], references: [id])
+  tags      SongTag[]
+
+  @@index([userId], name: "idx_songs_user_id")
+  @@index([categoryId], name: "idx_songs_category_id")
+  @@index([status], name: "idx_songs_status")
+  @@index([playCount(sort: Desc)], name: "idx_songs_play_count")
+  @@index([likeCount(sort: Desc)], name: "idx_songs_like_count")
+  @@index([createdAt(sort: Desc)], name: "idx_songs_created_at")
+  @@index([deletedAt], name: "idx_songs_deleted_at")
+  @@map("songs")
+}
+
+// =============================================================================
+// SongTag (Many-to-Many)
+// =============================================================================
+
+model SongTag {
+  songId String @map("song_id") @db.Char(36)
+  tagId  Int    @map("tag_id")
+
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([songId, tagId])
+  @@map("song_tags")
 }

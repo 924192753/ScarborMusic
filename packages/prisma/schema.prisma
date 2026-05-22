@@ -1,0 +1,58 @@
+// =============================================================================
+// ScarborMusic — Prisma Schema
+// Database: MySQL 8.4
+// Connection URL is configured in prisma.config.ts (Prisma v7)
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// =============================================================================
+// Role — System roles (ADMIN, USER)
+// =============================================================================
+
+model Role {
+  id          String    @id @default(uuid()) @db.Char(36)
+  name        String    @unique @db.VarChar(32)
+  description String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  users User[]
+
+  @@index([deletedAt], name: "idx_roles_deleted_at")
+  @@map("roles")
+}
+
+// =============================================================================
+// User — Platform users
+// =============================================================================
+
+model User {
+  id            String    @id @default(uuid()) @db.Char(36)
+  username      String    @unique @db.VarChar(32)
+  email         String    @unique @db.VarChar(128)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  avatarUrl     String?   @map("avatar_url") @db.VarChar(512)
+  emailVerified Boolean   @default(false) @map("email_verified")
+  isActive      Boolean   @default(true) @map("is_active")
+  roleId        String    @map("role_id") @db.Char(36)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@index([email], name: "idx_users_email")
+  @@index([username], name: "idx_users_username")
+  @@index([roleId], name: "idx_users_role_id")
+  @@index([deletedAt], name: "idx_users_deleted_at")
+  @@index([createdAt(sort: Desc)], name: "idx_users_created_at")
+  @@map("users")
+}

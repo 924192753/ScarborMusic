@@ -111,7 +111,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
       </header>
 
       {/* Page content */}
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 pb-20">{children}</main>
 
       {/* Footer (placeholder — player bar added in Phase 6) */}
       <footer className="border-t py-6 text-center text-xs text-muted-foreground">

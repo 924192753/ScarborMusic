@@ -5,19 +5,20 @@ import { SongCard } from '@/components/music/SongCard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { prisma } from '@/lib/prisma'
+import type { PlayerSong } from '@/store/player'
 
 export const metadata: Metadata = {
   title: 'Songs',
   description: 'Browse and discover music on ScarborMusic',
 }
 
-// ISR: revalidate every 60 seconds
 export const revalidate = 60
 
 const SONG_INCLUDE = {
   category: { select: { id: true, name: true, slug: true } },
   tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
   coverFile: { select: { url: true } },
+  audioFile: { select: { url: true } },
   user: { select: { id: true, username: true } },
 } as const
 
@@ -64,6 +65,18 @@ export default async function SongsPage({ searchParams }: PageProps) {
   ])
 
   const totalPages = Math.ceil(total / pageSize)
+
+  // Build player queue from songs that have audio files
+  const playerQueue: PlayerSong[] = songs
+    .filter((s) => s.audioFile?.url)
+    .map((s) => ({
+      id: s.id,
+      title: s.title,
+      artistName: s.artistName,
+      audioUrl: s.audioFile!.url,
+      coverUrl: s.coverFile?.url ?? null,
+      duration: s.duration ?? null,
+    }))
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -178,9 +191,13 @@ export default async function SongsPage({ searchParams }: PageProps) {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
               {songs.map((song) => (
-                <SongCard key={song.id} song={{ ...song, playCount: song.playCount.toString() }} />
+                <SongCard
+                  key={song.id}
+                  song={{ ...song, playCount: song.playCount.toString() }}
+                  queue={playerQueue}
+                />
               ))}
             </div>
           )}

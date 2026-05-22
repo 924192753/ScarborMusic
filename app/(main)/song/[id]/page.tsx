@@ -3,9 +3,11 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import { PlayButton } from '@/components/player/PlayButton'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { prisma } from '@/lib/prisma'
+import type { PlayerSong } from '@/store/player'
 
 // ─── Data Fetching ────────────────────────────────────────────────────────────
 
@@ -13,7 +15,7 @@ const SONG_INCLUDE = {
   category: { select: { id: true, name: true, slug: true } },
   tags: { include: { tag: { select: { id: true, name: true, slug: true } } } },
   coverFile: { select: { url: true } },
-  audioFile: { select: { url: true } },
+  audioFile: { select: { id: true, url: true } },
   user: { select: { id: true, username: true, avatarUrl: true } },
 } as const
 
@@ -24,7 +26,20 @@ async function getSong(id: string) {
   })
 }
 
-// ─── Metadata (SSR) ───────────────────────────────────────────────────────────
+// ─── Convert to PlayerSong ───────────────────────────────────────────────────
+
+function toPlayerSong(song: NonNullable<Awaited<ReturnType<typeof getSong>>>): PlayerSong {
+  return {
+    id: song.id,
+    title: song.title,
+    artistName: song.artistName,
+    audioUrl: song.audioFile?.url ?? '',
+    coverUrl: song.coverFile?.url ?? null,
+    duration: song.duration,
+  }
+}
+
+// ─── Metadata ─────────────────────────────────────────────────────────────────
 
 export async function generateMetadata({
   params,
@@ -33,7 +48,6 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params
   const song = await getSong(id)
-
   if (!song) return { title: 'Song not found' }
 
   const title = `${song.title} — ${song.artistName}`
@@ -52,11 +66,7 @@ export async function generateMetadata({
         images: [{ url: song.coverFile.url, width: 800, height: 800, alt: song.title }],
       }),
     },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-    },
+    twitter: { card: 'summary_large_image', title, description },
   }
 }
 
@@ -76,13 +86,42 @@ function formatCount(n: bigint | number): string {
   return num.toLocaleString()
 }
 
-// ─── Page Component ───────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function SongDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const song = await getSong(id)
 
   if (!song || song.status === 'HIDDEN') notFound()
+
+  const playerSong = toPlayerSong(song)
+
+  // Fetch a few more songs from the same category for the queue
+  let relatedSongs: PlayerSong[] = []
+  if (song.categoryId) {
+    const related = await prisma.song.findMany({
+      where: {
+        categoryId: song.categoryId,
+        status: 'PUBLISHED',
+        deletedAt: null,
+        id: { not: song.id },
+      },
+      take: 9,
+      include: { audioFile: { select: { url: true } }, coverFile: { select: { url: true } } },
+    })
+    relatedSongs = related
+      .filter((s) => s.audioFile?.url)
+      .map((s) => ({
+        id: s.id,
+        title: s.title,
+        artistName: s.artistName,
+        audioUrl: s.audioFile!.url,
+        coverUrl: s.coverFile?.url ?? null,
+        duration: s.duration,
+      }))
+  }
+
+  const fullQueue: PlayerSong[] = [playerSong, ...relatedSongs]
 
   const schemaOrg = {
     '@context': 'https://schema.org',
@@ -182,7 +221,7 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
                 </span>
               )}
               <span className="flex items-center gap-1.5 text-muted-foreground">
-                Uploaded by{' '}
+                By{' '}
                 <Link
                   href={`/user/${song.user.id}`}
                   className="font-medium text-foreground hover:text-primary"
@@ -205,10 +244,20 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
               </div>
             )}
 
-            {/* Audio player placeholder (Phase 6) */}
-            <div className="rounded-xl border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-              🎵 Audio player coming in Phase 6
-            </div>
+            {/* Play Controls */}
+            {song.audioFile?.url ? (
+              <div className="flex items-center gap-3 pt-2">
+                <PlayButton song={playerSong} queue={fullQueue} size="lg" />
+                <div>
+                  <p className="text-sm font-medium">Play Now</p>
+                  <p className="text-xs text-muted-foreground">
+                    {fullQueue.length > 1 && `${fullQueue.length} songs in queue`}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Audio not available</p>
+            )}
           </div>
         </div>
 
@@ -217,7 +266,7 @@ export default async function SongDetailPage({ params }: { params: Promise<{ id:
           <>
             <Separator className="my-8" />
             <section>
-              <h2 className="mb-3 text-lg font-semibold">About this song</h2>
+              <h2 className="mb-3 text-lg font-semibold">About</h2>
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                 {song.description}
               </p>

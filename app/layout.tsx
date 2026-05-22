@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 
+import { PlayerBar } from '@/components/player/PlayerBar'
+import { PlayerProvider } from '@/components/player/PlayerProvider'
+import { PlayerQueue } from '@/components/player/PlayerQueue'
+
 import './globals.css'
 
 const geistSans = Geist({
@@ -71,7 +75,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <PlayerProvider>
+          {children}
+          <PlayerBar />
+          <PlayerQueue />
+        </PlayerProvider>
+      </body>
     </html>
   )
 }

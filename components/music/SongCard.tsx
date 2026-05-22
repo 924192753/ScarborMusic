@@ -1,8 +1,12 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 
+import { PlayButton } from '@/components/player/PlayButton'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import type { PlayerSong } from '@/store/player'
 
 interface SongCardSong {
   id: string
@@ -12,6 +16,7 @@ interface SongCardSong {
   duration?: number | null
   playCount: string | number | bigint
   coverFile?: { url: string } | null
+  audioFile?: { url: string } | null
   category?: { name: string; slug: string } | null
   tags?: { tag: { name: string; slug: string } }[]
   user?: { username: string } | null
@@ -31,7 +36,24 @@ function formatCount(count: string | number | bigint): string {
   return n.toString()
 }
 
-export function SongCard({ song }: { song: SongCardSong }) {
+interface SongCardProps {
+  song: SongCardSong
+  /** Full queue context for prev/next support */
+  queue?: PlayerSong[]
+}
+
+export function SongCard({ song, queue }: SongCardProps) {
+  const playerSong: PlayerSong | null = song.audioFile?.url
+    ? {
+        id: song.id,
+        title: song.title,
+        artistName: song.artistName,
+        audioUrl: song.audioFile.url,
+        coverUrl: song.coverFile?.url ?? null,
+        duration: song.duration ?? null,
+      }
+    : null
+
   return (
     <Card className="group overflow-hidden transition-all hover:shadow-md hover:shadow-primary/10">
       <Link href={`/song/${song.id}`}>
@@ -57,14 +79,23 @@ export function SongCard({ song }: { song: SongCardSong }) {
               </svg>
             </div>
           )}
+
           {/* Duration overlay */}
           {song.duration && (
             <div className="absolute bottom-1.5 right-1.5 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white/90 backdrop-blur-sm">
               {formatDuration(song.duration)}
             </div>
           )}
+
+          {/* Play button overlay — only shown when audio is available */}
+          {playerSong && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+              <PlayButton song={playerSong} queue={queue} size="md" />
+            </div>
+          )}
         </div>
       </Link>
+
       <CardContent className="p-3">
         <Link href={`/song/${song.id}`} className="block">
           <h3 className="truncate text-sm font-semibold leading-tight hover:text-primary">

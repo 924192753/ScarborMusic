@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 
+import { CsrfProvider } from '@/components/CsrfProvider'
 import { PlayerBar } from '@/components/player/PlayerBar'
 import { PlayerProvider } from '@/components/player/PlayerProvider'
 import { PlayerQueue } from '@/components/player/PlayerQueue'
@@ -76,11 +77,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <PlayerProvider>
-          {children}
-          <PlayerBar />
-          <PlayerQueue />
-        </PlayerProvider>
+        <CsrfProvider>
+          <PlayerProvider>
+            {children}
+            <PlayerBar />
+            <PlayerQueue />
+          </PlayerProvider>
+        </CsrfProvider>
       </body>
     </html>
   )

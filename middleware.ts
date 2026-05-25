@@ -1,23 +1,47 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
+import {
+  csrfForbiddenResponse,
+  ensureCsrfCookieOnResponse,
+  requiresCsrfValidation,
+  validateCsrfToken,
+} from '@/lib/csrf'
 import { verifyAccessToken } from '@/lib/jwt'
 import { ROLES } from '@/lib/rbac'
 
 const PROTECTED_PREFIXES = ['/profile', '/admin', '/uploads', '/playlists', '/favorites']
 const ADMIN_PREFIXES = ['/admin']
 
+function attachCsrfIfNeeded(request: NextRequest, response: NextResponse): NextResponse {
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    return ensureCsrfCookieOnResponse(request, response)
+  }
+  return response
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // CSRF validation for state-changing API requests
+  if (requiresCsrfValidation(request.method, pathname)) {
+    if (!validateCsrfToken(request)) {
+      return csrfForbiddenResponse()
+    }
+  }
+
   const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
-  if (!isProtected) return NextResponse.next()
+  if (!isProtected) {
+    const response = NextResponse.next()
+    return attachCsrfIfNeeded(request, response)
+  }
 
   const accessToken = request.cookies.get('access_token')?.value
 
   if (!accessToken) {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
+    const response = NextResponse.redirect(loginUrl)
+    return attachCsrfIfNeeded(request, response)
   }
 
   try {
@@ -40,18 +64,20 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set('x-user-role', payload.role)
     requestHeaders.set('x-user-email', payload.email)
 
-    return NextResponse.next({ request: { headers: requestHeaders } })
+    const response = NextResponse.next({ request: { headers: requestHeaders } })
+    return attachCsrfIfNeeded(request, response)
   } catch {
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     const response = NextResponse.redirect(loginUrl)
     response.cookies.set('access_token', '', { maxAge: 0, path: '/' })
-    return response
+    return attachCsrfIfNeeded(request, response)
   }
 }
 
 export const config = {
   matcher: [
+    '/api/:path*',
     '/profile/:path*',
     '/admin/:path*',
     '/uploads/:path*',

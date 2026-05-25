@@ -7,7 +7,13 @@ import { badRequest, handleApiError, ok, parseBody, type unauthorized } from '@/
 import { requireAuthUser } from '@/lib/auth-server'
 import { prisma } from '@/lib/prisma'
 import { getPublicUrl, getS3Client } from '@/lib/s3'
-import { type FileCategory, validateMagicNumber } from '@/lib/upload'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { logUploadAudit } from '@/lib/upload-audit'
+import {
+  type FileCategory,
+  sanitizeStoredFileName,
+  validateMagicNumber,
+} from '@/lib/upload'
 
 const completeSchema = z.object({
   objectKey: z.string().min(1).max(512),
@@ -31,6 +37,11 @@ export async function POST(request: NextRequest) {
     if (!('data' in parsed)) return parsed
 
     const { objectKey, fileName, mimeType, fileType } = parsed.data
+
+    const rateLimited = await enforceRateLimit('upload', user.sub)
+    if (rateLimited) return rateLimited
+
+    const safeFileName = sanitizeStoredFileName(fileName, fileType as FileCategory)
     const bucket = process.env.S3_BUCKET ?? 'scarbormusic'
     const client = getS3Client()
 
@@ -68,13 +79,22 @@ export async function POST(request: NextRequest) {
 
       const magicResult = await validateMagicNumber(buffer, mimeType, fileType as FileCategory)
       if (!magicResult.valid) {
-        // Delete the invalid file from S3 immediately
         try {
           const { DeleteObjectCommand } = await import('@aws-sdk/client-s3')
           await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }))
         } catch {
           console.error('[upload/complete] Failed to delete invalid file:', objectKey)
         }
+        await logUploadAudit({
+          userId: user.sub,
+          fileName: safeFileName,
+          mimeType,
+          fileType,
+          objectKey,
+          status: 'rejected',
+          reason: magicResult.error,
+          request,
+        })
         return badRequest(
           magicResult.error ?? `File type validation failed. Detected: ${magicResult.detected}`,
         )
@@ -100,13 +120,23 @@ export async function POST(request: NextRequest) {
     const uploadedFile = await prisma.uploadedFile.create({
       data: {
         userId: user.sub,
-        fileName,
+        fileName: safeFileName,
         objectKey,
         url: getPublicUrl(objectKey),
         mimeType,
         size: fileSize,
         fileType,
       },
+    })
+
+    await logUploadAudit({
+      userId: user.sub,
+      fileName: safeFileName,
+      mimeType,
+      fileType,
+      objectKey,
+      status: 'allowed',
+      request,
     })
 
     return ok(

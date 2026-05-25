@@ -1,6 +1,14 @@
 import { type NextRequest } from 'next/server'
 
-import { badRequest, conflict, created, handleApiError, parseBody, setAuthCookies } from '@/lib/api'
+import {
+  badRequest,
+  conflict,
+  created,
+  handleApiError,
+  parseBody,
+  setAuthCookies,
+} from '@/lib/api'
+import { enforceRateLimitFromRequest } from '@/lib/rate-limit'
 import { generateAccessToken, generateRefreshToken } from '@/lib/jwt'
 import { hashPassword } from '@/lib/password'
 import { prisma } from '@/lib/prisma'
@@ -9,6 +17,9 @@ import { registerSchema } from '@/lib/validators/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimited = await enforceRateLimitFromRequest(request, 'auth:register')
+    if (rateLimited) return rateLimited
+
     const parsed = await parseBody(request, registerSchema)
     if (!('data' in parsed)) return parsed
 

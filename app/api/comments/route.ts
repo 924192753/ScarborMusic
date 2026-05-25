@@ -9,17 +9,14 @@ import {
   notFound,
   ok,
   parseBody,
-  tooManyRequests,
   type unauthorized,
 } from '@/lib/api'
 import { getAuthUser, requireAuthUser } from '@/lib/auth-server'
 import { withCache } from '@/lib/cache'
 import { prisma } from '@/lib/prisma'
 import { redis } from '@/lib/redis'
+import { enforceRateLimit } from '@/lib/rate-limit'
 import { validateCommentContent } from '@/lib/sanitize'
-
-const RATE_WINDOW = 30 // seconds
-const RATE_MAX = 5 // max comments per window
 
 const createCommentSchema = z.object({
   songId: z.string().uuid(),
@@ -140,15 +137,8 @@ export async function POST(request: NextRequest) {
     if ('status' in authResult) return authResult as ReturnType<typeof unauthorized>
     const user = authResult
 
-    // Rate limiting: 5 comments per 30 seconds per user
-    const rateKey = `rate:comment:${user.sub}`
-    const count = await redis.incr(rateKey)
-    if (count === 1) await redis.expire(rateKey, RATE_WINDOW)
-    if (count > RATE_MAX) {
-      return tooManyRequests(
-        `Too many comments. Please wait ${RATE_WINDOW} seconds before posting again.`,
-      )
-    }
+    const rateLimited = await enforceRateLimit('comments', user.sub)
+    if (rateLimited) return rateLimited
 
     const parsed = await parseBody(request, createCommentSchema)
     if (!('data' in parsed)) return parsed

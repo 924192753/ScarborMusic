@@ -1,26 +1,29 @@
-/**
- * Server-side text sanitization utilities.
- *
- * For plain-text content (comments, descriptions) we strip HTML tags and
- * normalize whitespace. This prevents XSS when the content is later rendered
- * in a browser context without full HTML escaping.
- *
- * For rich-text content, use isomorphic-dompurify instead.
- */
+import DOMPurify from 'isomorphic-dompurify'
+
+const FORBID_TAGS = ['script', 'iframe', 'object', 'embed', 'svg', 'form', 'input', 'link', 'meta']
+const FORBID_ATTR = ['onerror', 'onload', 'onclick', 'onmouseover', 'style', 'href', 'src', 'xlink:href']
 
 /**
- * Strip HTML/XML tags and normalize whitespace in a plain-text string.
+ * Sanitize untrusted text/HTML using DOMPurify (server-safe via isomorphic-dompurify).
+ * Strips dangerous tags and attributes; returns plain safe text for storage.
  */
 export function sanitizeText(input: string): string {
-  return input
-    .replace(/<[^>]*>/g, '') // strip all HTML tags
-    .replace(/&[a-z]+;/gi, (e) => HTML_ENTITIES[e.toLowerCase()] ?? e) // decode basic entities
-    .replace(/[ \t]+/g, ' ') // collapse horizontal whitespace
+  const purified = DOMPurify.sanitize(input, {
+    ALLOWED_TAGS: [],
+    ALLOWED_ATTR: [],
+    FORBID_TAGS,
+    FORBID_ATTR,
+    KEEP_CONTENT: true,
+  })
+
+  return purified
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
 
 /**
- * Validate a comment body: strip HTML, check length constraints.
+ * Validate a comment body: DOMPurify strip, then check length constraints.
  */
 export function validateCommentContent(
   raw: string,
@@ -43,11 +46,18 @@ export function validateCommentContent(
   return { valid: true, content }
 }
 
-const HTML_ENTITIES: Record<string, string> = {
-  '&amp;': '&',
-  '&lt;': '<',
-  '&gt;': '>',
-  '&quot;': '"',
-  '&#39;': "'",
-  '&nbsp;': ' ',
+/**
+ * Detect obvious XSS payloads before sanitization (defense in depth).
+ */
+export function containsDangerousMarkup(input: string): boolean {
+  const lowered = input.toLowerCase()
+  return (
+    /<script\b/i.test(lowered) ||
+    /<iframe\b/i.test(lowered) ||
+    /<object\b/i.test(lowered) ||
+    /<embed\b/i.test(lowered) ||
+    /<svg\b/i.test(lowered) ||
+    /javascript:/i.test(lowered) ||
+    /on\w+\s*=/i.test(lowered)
+  )
 }

@@ -7,7 +7,14 @@ import { z } from 'zod'
 import { badRequest, handleApiError, ok, parseBody, type unauthorized } from '@/lib/api'
 import { requireAuthUser } from '@/lib/auth-server'
 import { ensureBucket, getPublicUrl, getS3Client } from '@/lib/s3'
-import { type FileCategory, generateObjectKey, validateUploadRequest } from '@/lib/upload'
+import { enforceRateLimit } from '@/lib/rate-limit'
+import { logUploadAudit } from '@/lib/upload-audit'
+import {
+  type FileCategory,
+  generateObjectKey,
+  sanitizeStoredFileName,
+  validateUploadRequest,
+} from '@/lib/upload'
 
 const presignedUrlSchema = z.object({
   filename: z.string().min(1).max(255),
@@ -31,13 +38,38 @@ export async function POST(request: NextRequest) {
     const parsed = await parseBody(request, presignedUrlSchema)
     if (!('data' in parsed)) return parsed
 
-    const { contentType, fileSize, fileType } = parsed.data
+    const { filename, contentType, fileSize, fileType } = parsed.data
 
-    // ─── Validate file type and size ────────────────────────────────────────
-    const validation = validateUploadRequest(contentType, fileSize, fileType as FileCategory)
+    const rateLimited = await enforceRateLimit('upload', user.sub)
+    if (rateLimited) return rateLimited
+
+    const validation = validateUploadRequest(
+      contentType,
+      fileSize,
+      fileType as FileCategory,
+      filename,
+    )
     if (!validation.valid) {
+      await logUploadAudit({
+        userId: user.sub,
+        fileName: filename,
+        mimeType: contentType,
+        fileType,
+        status: 'rejected',
+        reason: validation.error,
+        request,
+      })
       return badRequest(validation.error ?? 'Invalid file')
     }
+
+    await logUploadAudit({
+      userId: user.sub,
+      fileName: sanitizeStoredFileName(filename, fileType as FileCategory),
+      mimeType: contentType,
+      fileType,
+      status: 'allowed',
+      request,
+    })
 
     // ─── Ensure bucket exists ───────────────────────────────────────────────
     await ensureBucket()

@@ -1,14 +1,13 @@
 import { type NextRequest } from 'next/server'
 
-import { badRequest, handleApiError, ok, parseBody, tooManyRequests } from '@/lib/api'
+import { badRequest, handleApiError, ok, parseBody } from '@/lib/api'
 import { sendVerificationCode } from '@/lib/email'
 import { prisma } from '@/lib/prisma'
-import { CacheKeys, getCache, incrementCache, setCache } from '@/lib/redis'
+import { enforceRateLimitFromRequest } from '@/lib/rate-limit'
+import { CacheKeys, getCache, setCache } from '@/lib/redis'
 import { sendCodeSchema } from '@/lib/validators/auth'
 
 const CODE_TTL_SECONDS = 5 * 60 // 5 minutes
-const RATE_LIMIT_MAX = 3 // max 3 codes per 10 minutes per IP
-const RATE_LIMIT_WINDOW = 10 * 60
 
 function generateCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
@@ -21,13 +20,8 @@ export async function POST(request: NextRequest) {
 
     const { email, type } = parsed.data
 
-    // ─── Rate limiting (per IP) ─────────────────────────────────────────────
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown'
-    const rateKey = CacheKeys.rateLimitSendCode(ip)
-    const attempts = await incrementCache(rateKey, RATE_LIMIT_WINDOW)
-    if (attempts > RATE_LIMIT_MAX) {
-      return tooManyRequests('Too many code requests. Please wait 10 minutes and try again.')
-    }
+    const rateLimited = await enforceRateLimitFromRequest(request, 'auth:send-code')
+    if (rateLimited) return rateLimited
 
     // ─── Check if a valid code already exists in Redis ──────────────────────
     const existingCode = await getCache(CacheKeys.emailCode(email, type))

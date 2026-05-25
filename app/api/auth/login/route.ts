@@ -5,31 +5,23 @@ import {
   ok,
   parseBody,
   setAuthCookies,
-  tooManyRequests,
   unauthorized,
 } from '@/lib/api'
 import { generateAccessToken, generateRefreshToken } from '@/lib/jwt'
 import { verifyPassword } from '@/lib/password'
 import { prisma } from '@/lib/prisma'
-import { CacheKeys, incrementCache } from '@/lib/redis'
+import { enforceRateLimitFromRequest } from '@/lib/rate-limit'
 import { loginSchema } from '@/lib/validators/auth'
-
-const RATE_LIMIT_MAX = 10 // max 10 login attempts per 15 minutes per IP
-const RATE_LIMIT_WINDOW = 15 * 60
 
 export async function POST(request: NextRequest) {
   try {
+    const rateLimited = await enforceRateLimitFromRequest(request, 'auth:login')
+    if (rateLimited) return rateLimited
+
     const parsed = await parseBody(request, loginSchema)
     if (!('data' in parsed)) return parsed
 
     const { email, password } = parsed.data
-
-    // ─── Rate limiting ───────────────────────────────────────────────────────
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown'
-    const attempts = await incrementCache(CacheKeys.rateLimitLogin(ip), RATE_LIMIT_WINDOW)
-    if (attempts > RATE_LIMIT_MAX) {
-      return tooManyRequests('Too many login attempts. Please try again in 15 minutes.')
-    }
 
     // ─── Find user ───────────────────────────────────────────────────────────
     const user = await prisma.user.findUnique({

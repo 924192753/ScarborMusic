@@ -24,6 +24,9 @@ RUN apk add --no-cache libc6-compat openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Next.js optional static dir; required for runner COPY when repo has no public/ yet
+RUN mkdir -p public
+
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
@@ -58,6 +61,7 @@ ENV HOSTNAME=0.0.0.0
 # Standalone server + static assets
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# public/ may be empty; favicon etc. can be added under /public later
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 # Prisma schema, migrations, config (runtime migrate deploy)

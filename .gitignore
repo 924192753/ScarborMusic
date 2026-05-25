@@ -8,6 +8,9 @@
 !.yarn/releases
 !.yarn/versions
 
+# release packages
+/dist
+
 # testing
 /coverage
 

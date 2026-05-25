@@ -1,6 +1,13 @@
 # =============================================================================
 # ScarborMusic — Production Docker Compose (Tencent Cloud / CentOS Stream 9)
-# Usage: docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# 公网 IP + HTTP（默认）:
+#   cp .env.production.ip.example .env.production
+#   ./scripts/deploy-ip.sh
+#   访问 http://159.75.87.182
+#
+# 域名 + HTTPS（可选）:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production --profile ssl up -d
 # =============================================================================
 
 name: scarbormusic-prod
@@ -26,7 +33,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     depends_on:
       mysql:
         condition: service_healthy
@@ -144,7 +151,6 @@ services:
     restart: always
     ports:
       - "80:80"
-      - "443:443"
     environment:
       DOMAIN: ${DOMAIN}
     volumes:
@@ -161,8 +167,10 @@ services:
     mem_limit: 256m
     cpus: 0.5
 
-  # ─── Certbot (Let's Encrypt auto-renewal) ─────────────────────────────────────
+  # ─── Certbot (Let's Encrypt — 仅域名 HTTPS 时启用: --profile ssl) ───────────────
   certbot:
+    profiles:
+      - ssl
     image: certbot/certbot:latest
     container_name: scarbormusic-certbot
     restart: always

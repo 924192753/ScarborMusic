@@ -2,6 +2,18 @@
 
 Target platform: **Tencent Cloud CVM**, **CentOS Stream 9**, **Docker Compose** one-click production stack.
 
+**Current default:** public IP **159.75.87.182** + **HTTP** only (no TLS).
+
+| Item | Value |
+|------|-------|
+| Site URL | http://159.75.87.182 |
+| Env template | `.env.production.ip.example` |
+| Deploy script | `./scripts/deploy-ip.sh` |
+| Cookie flag | `COOKIE_SECURE=false` |
+| Object storage URL | `S3_PUBLIC_URL=http://159.75.87.182/storage` |
+
+Chinese step-by-step: `docs/服务器部署教程.md`
+
 ---
 
 ## Architecture
@@ -23,7 +35,7 @@ flowchart TB
 
 | Service | Role | Host port |
 |---------|------|-----------|
-| nginx | Reverse proxy, TLS, gzip/brotli | 80, 443 |
+| nginx | Reverse proxy, gzip, `/storage` → MinIO | 80 |
 | web | Next.js standalone (Node 22) | internal |
 | mysql | Primary database | internal |
 | redis | Cache, rate limit, sessions | internal |
@@ -55,29 +67,31 @@ sudo firewall-cmd --reload
 
 ---
 
-## 2. DNS
-
-Point your domain A record to the server public IP:
-
-```
-music.example.com  →  <SERVER_PUBLIC_IP>
-```
-
----
-
-## 3. Deploy application
+## 2. Deploy (IP + HTTP)
 
 ```bash
 sudo mkdir -p /opt/scarbormusic
-sudo chown $USER:$USER /opt/scarbormusic
 cd /opt/scarbormusic
 
-git clone https://github.com/<your-org>/ScarborMusic.git .
-cp .env.production.example .env.production
-vim .env.production   # set DOMAIN, passwords, JWT secrets, SMTP
+# from tarball or git clone
+cp .env.production.ip.example .env.production
+vim .env.production   # replace change-me passwords; keep COOKIE_SECURE=false
 
 chmod +x scripts/*.sh
-./scripts/deploy.sh
+./scripts/deploy-ip.sh
+```
+
+Open **http://159.75.87.182** — do **not** run `init-ssl.sh` in this mode.
+
+---
+
+## 3. Optional: domain + HTTPS
+
+Point your domain A record to the server public IP, update `.env.production` (`https://`, `COOKIE_SECURE=true`), add nginx port `443:443`, then:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production --profile ssl up -d
+./scripts/init-ssl.sh
 ```
 
 Validate compose file before deploy:

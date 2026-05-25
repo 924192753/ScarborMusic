@@ -40,6 +40,7 @@ const productionOnlyHeaders = isProd
   : []
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   images: {
     remotePatterns: [
       {

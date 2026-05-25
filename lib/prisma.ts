@@ -3,8 +3,6 @@ import { PrismaClient } from '@prisma/client'
 import { createDbAdapter } from './db'
 
 // Extend globalThis to persist the Prisma client across Next.js hot reloads.
-// Without this, each hot reload creates a new PrismaClient and exhausts the
-// connection pool during development.
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
@@ -25,10 +23,24 @@ function createPrismaClient(): PrismaClient {
   })
 }
 
-export const prisma: PrismaClient = globalForPrisma.prisma ?? createPrismaClient()
-
-// Cache the client on globalThis in non-production environments so that
-// Next.js Fast Refresh does not instantiate a new client on every file save.
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
+function getPrismaClient(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient()
+  }
+  return globalForPrisma.prisma
 }
+
+/**
+ * Lazy Prisma client — avoids connecting at module load during `next build`
+ * (when DATABASE_URL may be unset inside Docker builder).
+ */
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getPrismaClient()
+    const value = Reflect.get(client, prop, client) as unknown
+    if (typeof value === 'function') {
+      return (value as (...args: unknown[]) => unknown).bind(client)
+    }
+    return value
+  },
+})

@@ -20,12 +20,24 @@ function parseMysqlUrl(url: string) {
   }
 }
 
-export function createDbAdapter() {
-  const dbUrl = process.env.DATABASE_URL
+/** Placeholder for `next build` when Docker/CI has no live MySQL yet. */
+function resolveDatabaseUrl(): string {
+  const url = process.env.DATABASE_URL
+  if (url) return url
 
-  if (!dbUrl) {
-    throw new Error('DATABASE_URL environment variable is not set')
+  const isNextProductionBuild =
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.npm_lifecycle_event === 'build'
+
+  if (isNextProductionBuild) {
+    return 'mysql://scarbormusic:build@127.0.0.1:3306/scarbormusic'
   }
+
+  throw new Error('DATABASE_URL environment variable is not set')
+}
+
+export function createDbAdapter() {
+  const dbUrl = resolveDatabaseUrl()
 
   const config = parseMysqlUrl(dbUrl)
   return new PrismaMariaDb(config)

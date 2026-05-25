@@ -100,13 +100,13 @@ export async function parseBody<T>(
 export const COOKIE_ACCESS_TOKEN = 'access_token'
 export const COOKIE_REFRESH_TOKEN = 'refresh_token'
 
-import { useSecureCookies } from '@/lib/cookie-options'
+import { shouldUseSecureCookies } from '@/lib/cookie-options'
 
 export function setAuthCookies(
   response: NextResponse,
   tokens: { accessToken: string; refreshToken: string },
 ): void {
-  const secure = useSecureCookies()
+  const secure = shouldUseSecureCookies()
   response.cookies.set(COOKIE_ACCESS_TOKEN, tokens.accessToken, {
     httpOnly: true,
     secure,

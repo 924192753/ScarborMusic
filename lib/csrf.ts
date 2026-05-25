@@ -1,6 +1,7 @@
 import { type NextRequest, type NextResponse } from 'next/server'
 
 import { forbidden } from '@/lib/api'
+import { useSecureCookies } from '@/lib/cookie-options'
 
 export const CSRF_COOKIE_NAME = 'csrf_token'
 export const CSRF_HEADER_NAME = 'x-csrf-token'
@@ -39,10 +40,9 @@ export function validateCsrfToken(request: NextRequest): boolean {
 }
 
 export function applyCsrfCookie(response: NextResponse, token: string): void {
-  const isProd = process.env.NODE_ENV === 'production'
   response.cookies.set(CSRF_COOKIE_NAME, token, {
     httpOnly: false,
-    secure: isProd,
+    secure: useSecureCookies(),
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24,

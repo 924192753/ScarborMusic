@@ -27,6 +27,16 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+# Build-time env from docker compose --env-file .env.production (see docker-compose.prod.yml build.args)
+ARG DATABASE_URL=mysql://scarbormusic:build@mysql:3306/scarbormusic
+ARG JWT_SECRET=build-time-jwt-secret-min-32-chars!!
+ARG JWT_REFRESH_SECRET=build-time-refresh-secret-min-32!!
+ARG NEXT_PUBLIC_APP_URL=http://159.75.87.182
+ENV DATABASE_URL=${DATABASE_URL}
+ENV JWT_SECRET=${JWT_SECRET}
+ENV JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+
 # Prisma client required for Next.js build (server components / API routes)
 RUN npx prisma generate
 

@@ -274,8 +274,14 @@ services:
     image: prom/mysqld-exporter:v0.16.0
     container_name: scarbormusic-mysql-exporter
     restart: always
+    env_file:
+      - .env.production
     environment:
-      DATA_SOURCE_NAME: "${MYSQL_USER:-scarbormusic}:${MYSQL_PASSWORD}@(mysql:3306)/"
+      # v0.16+ removed DATA_SOURCE_NAME; use flags + MYSQLD_EXPORTER_PASSWORD
+      MYSQLD_EXPORTER_PASSWORD: ${MYSQL_PASSWORD}
+    command:
+      - --mysqld.address=mysql:3306
+      - --mysqld.username=${MYSQL_USER:-scarbormusic}
     depends_on:
       mysql:
         condition: service_healthy

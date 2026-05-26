@@ -1,0 +1,214 @@
+### ScarborMusic — Upload API Tests
+### Compatible with: VS Code REST Client, JetBrains HTTP Client
+### Prerequisite: Login first to get access_token cookie
+###   POST http://localhost:3000/api/auth/login
+
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Step 0: Login (to get access_token cookie for auth)
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 0. Login
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "testdev@example.com",
+  "password": "Test1234"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. Get Presigned URL for Image Upload
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 1a. Presigned URL — JPEG image (valid)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "photo.jpg",
+  "contentType": "image/jpeg",
+  "fileSize": 102400,
+  "fileType": "image"
+}
+
+### Expected Response (200):
+# {
+#   "success": true,
+#   "data": {
+#     "uploadUrl": "http://127.0.0.1:9000/scarbormusic/images/.../...jpg?...",
+#     "objectKey": "images/{userId}/{date}/{uuid}.jpg",
+#     "publicUrl": "http://127.0.0.1:9000/scarbormusic/images/..."
+#   }
+# }
+
+### 1b. Presigned URL — PNG image (valid)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "cover.png",
+  "contentType": "image/png",
+  "fileSize": 204800,
+  "fileType": "image"
+}
+
+### 1c. Presigned URL — WebP image (valid)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "thumbnail.webp",
+  "contentType": "image/webp",
+  "fileSize": 51200,
+  "fileType": "image"
+}
+
+### 1d. Presigned URL — MP3 audio (valid)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "song.mp3",
+  "contentType": "audio/mpeg",
+  "fileSize": 5242880,
+  "fileType": "audio"
+}
+
+### 1e. Presigned URL — WAV audio (valid)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "track.wav",
+  "contentType": "audio/wav",
+  "fileSize": 10485760,
+  "fileType": "audio"
+}
+
+### 1f. Presigned URL — FLAC audio (valid)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "master.flac",
+  "contentType": "audio/flac",
+  "fileSize": 20971520,
+  "fileType": "audio"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. Rejection Cases
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 2a. Reject EXE file (should return 400)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "malware.exe",
+  "contentType": "application/x-msdownload",
+  "fileSize": 1024,
+  "fileType": "image"
+}
+
+### 2b. Reject PHP file (should return 400)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "shell.php",
+  "contentType": "application/x-php",
+  "fileSize": 512,
+  "fileType": "image"
+}
+
+### 2c. Reject JS file (should return 400)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "exploit.js",
+  "contentType": "application/javascript",
+  "fileSize": 256,
+  "fileType": "audio"
+}
+
+### 2d. Image too large (> 5MB, should return 400)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "huge.jpg",
+  "contentType": "image/jpeg",
+  "fileSize": 6291456,
+  "fileType": "image"
+}
+
+### 2e. Audio too large (> 50MB, should return 400)
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+
+{
+  "filename": "huge_audio.mp3",
+  "contentType": "audio/mpeg",
+  "fileSize": 52428800,
+  "fileType": "audio"
+}
+
+### 2f. Unauthenticated request (should return 401)
+# Clear cookie first
+POST {{baseUrl}}/api/upload/presigned-url
+Content-Type: {{contentType}}
+Cookie: access_token=invalid.token.here
+
+{
+  "filename": "test.jpg",
+  "contentType": "image/jpeg",
+  "fileSize": 1024,
+  "fileType": "image"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Confirm Upload (run after actual upload via presigned URL)
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 3a. Confirm upload (replace objectKey with actual key from step 1)
+POST {{baseUrl}}/api/upload/complete
+Content-Type: {{contentType}}
+
+{
+  "objectKey": "REPLACE_WITH_ACTUAL_OBJECT_KEY",
+  "fileName": "photo.jpg",
+  "mimeType": "image/jpeg",
+  "fileType": "image"
+}
+
+### Expected Response (200):
+# {
+#   "success": true,
+#   "message": "File upload confirmed successfully",
+#   "data": {
+#     "id": "uuid",
+#     "url": "http://127.0.0.1:9000/scarbormusic/...",
+#     "objectKey": "images/...",
+#     "size": "102400",
+#     "etag": "abc123",
+#     "mimeType": "image/jpeg",
+#     "fileType": "image"
+#   }
+# }
+
+### 3b. Confirm non-existent file (should return 400)
+POST {{baseUrl}}/api/upload/complete
+Content-Type: {{contentType}}
+
+{
+  "objectKey": "images/fake-user/2026-01-01/nonexistent.jpg",
+  "fileName": "ghost.jpg",
+  "mimeType": "image/jpeg",
+  "fileType": "image"
+}

@@ -1,0 +1,315 @@
+// =============================================================================
+// ScarborMusic — Prisma Schema  (Prisma v7 / MySQL 8.4)
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ─── Role ─────────────────────────────────────────────────────────────────────
+
+model Role {
+  id          String    @id @default(uuid()) @db.Char(36)
+  name        String    @unique @db.VarChar(32)
+  description String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  users       User[]
+  @@index([deletedAt], name: "idx_roles_deleted_at")
+  @@map("roles")
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id                    String    @id @default(uuid()) @db.Char(36)
+  username              String    @unique @db.VarChar(32)
+  email                 String    @unique @db.VarChar(128)
+  passwordHash          String    @map("password_hash") @db.VarChar(255)
+  avatarUrl             String?   @map("avatar_url") @db.VarChar(512)
+  emailVerified         Boolean   @default(false) @map("email_verified")
+  isActive              Boolean   @default(true) @map("is_active")
+  roleId                String    @map("role_id") @db.Char(36)
+  refreshToken          String?   @map("refresh_token") @db.VarChar(512)
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
+
+  role          Role           @relation(fields: [roleId], references: [id])
+  uploadedFiles UploadedFile[]
+  songs         Song[]
+  favorites     Favorite[]
+  playlists     Playlist[]
+  comments      Comment[]
+  auditLogs       AuditLog[]
+  uploadAuditLogs UploadAuditLog[]
+
+  @@index([email], name: "idx_users_email")
+  @@index([username], name: "idx_users_username")
+  @@index([roleId], name: "idx_users_role_id")
+  @@index([deletedAt], name: "idx_users_deleted_at")
+  @@index([createdAt(sort: Desc)], name: "idx_users_created_at")
+  @@map("users")
+}
+
+// ─── EmailVerificationCode ────────────────────────────────────────────────────
+
+model EmailVerificationCode {
+  id        String   @id @default(uuid()) @db.Char(36)
+  email     String   @db.VarChar(128)
+  code      String   @db.VarChar(6)
+  type      String   @default("register") @db.VarChar(32)
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([email], name: "idx_email_codes_email")
+  @@index([expiresAt], name: "idx_email_codes_expires_at")
+  @@map("email_verification_codes")
+}
+
+// ─── UploadedFile ─────────────────────────────────────────────────────────────
+
+model UploadedFile {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @map("user_id") @db.Char(36)
+  fileName  String   @map("file_name") @db.VarChar(255)
+  objectKey String   @map("object_key") @db.VarChar(512) @unique
+  url       String   @db.VarChar(512)
+  mimeType  String   @map("mime_type") @db.VarChar(64)
+  size      BigInt
+  fileType  String   @map("file_type") @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user           User      @relation(fields: [userId], references: [id])
+  audioSongs     Song[]    @relation("SongAudioFile")
+  coverSongs     Song[]    @relation("SongCoverFile")
+  playlistCovers Playlist[] @relation("PlaylistCoverFile")
+
+  @@index([userId], name: "idx_uploaded_files_user_id")
+  @@index([fileType], name: "idx_uploaded_files_file_type")
+  @@index([createdAt(sort: Desc)], name: "idx_uploaded_files_created_at")
+  @@map("uploaded_files")
+}
+
+// ─── Category ─────────────────────────────────────────────────────────────────
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(64)
+  slug        String   @unique @db.VarChar(64)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  songs       Song[]
+  @@map("categories")
+}
+
+// ─── Tag ──────────────────────────────────────────────────────────────────────
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(64)
+  slug      String   @unique @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  songs     SongTag[]
+  @@map("tags")
+}
+
+// ─── Song ─────────────────────────────────────────────────────────────────────
+
+enum SongStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+}
+
+model Song {
+  id          String     @id @default(uuid()) @db.Char(36)
+  title       String     @db.VarChar(255)
+  description String?    @db.Text
+  lyrics      String?    @db.LongText
+  artistName  String     @map("artist_name") @db.VarChar(255)
+  albumName   String?    @map("album_name") @db.VarChar(255)
+  duration    Int?
+  playCount   BigInt     @default(0) @map("play_count")
+  likeCount   Int        @default(0) @map("like_count")
+  status      SongStatus @default(DRAFT)
+  audioFileId String?    @map("audio_file_id") @db.Char(36)
+  coverFileId String?    @map("cover_file_id") @db.Char(36)
+  categoryId  Int?       @map("category_id")
+  userId      String     @map("user_id") @db.Char(36)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  deletedAt   DateTime?  @map("deleted_at")
+
+  audioFile UploadedFile?  @relation("SongAudioFile", fields: [audioFileId], references: [id])
+  coverFile UploadedFile?  @relation("SongCoverFile", fields: [coverFileId], references: [id])
+  category  Category?      @relation(fields: [categoryId], references: [id])
+  user      User           @relation(fields: [userId], references: [id])
+  tags      SongTag[]
+  favorites Favorite[]
+  playlists PlaylistSong[]
+  comments  Comment[]
+
+  @@index([userId], name: "idx_songs_user_id")
+  @@index([categoryId], name: "idx_songs_category_id")
+  @@index([status], name: "idx_songs_status")
+  @@index([playCount(sort: Desc)], name: "idx_songs_play_count")
+  @@index([likeCount(sort: Desc)], name: "idx_songs_like_count")
+  @@index([createdAt(sort: Desc)], name: "idx_songs_created_at")
+  @@index([deletedAt], name: "idx_songs_deleted_at")
+  @@index([title], name: "idx_songs_title")
+  @@index([artistName], name: "idx_songs_artist_name")
+  @@index([albumName], name: "idx_songs_album_name")
+  @@fulltext([title, artistName, albumName])
+  @@map("songs")
+}
+
+model SongTag {
+  songId String @map("song_id") @db.Char(36)
+  tagId  Int    @map("tag_id")
+  song   Song   @relation(fields: [songId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([songId, tagId])
+  @@map("song_tags")
+}
+
+// ─── Favorite ─────────────────────────────────────────────────────────────────
+
+model Favorite {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @map("user_id") @db.Char(36)
+  songId    String   @map("song_id") @db.Char(36)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, songId], name: "unique_user_song_favorite")
+  @@index([userId], name: "idx_favorites_user_id")
+  @@index([createdAt(sort: Desc)], name: "idx_favorites_created_at")
+  @@map("favorites")
+}
+
+// ─── Playlist ─────────────────────────────────────────────────────────────────
+
+model Playlist {
+  id          String    @id @default(uuid()) @db.Char(36)
+  userId      String    @map("user_id") @db.Char(36)
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
+  coverFileId String?   @map("cover_file_id") @db.Char(36)
+  isPublic    Boolean   @default(true) @map("is_public")
+  songCount   Int       @default(0) @map("song_count")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coverFile UploadedFile? @relation("PlaylistCoverFile", fields: [coverFileId], references: [id])
+  songs     PlaylistSong[]
+
+  @@index([userId], name: "idx_playlists_user_id")
+  @@index([isPublic], name: "idx_playlists_is_public")
+  @@index([deletedAt], name: "idx_playlists_deleted_at")
+  @@map("playlists")
+}
+
+// ─── PlaylistSong ─────────────────────────────────────────────────────────────
+
+model PlaylistSong {
+  playlistId String   @map("playlist_id") @db.Char(36)
+  songId     String   @map("song_id") @db.Char(36)
+  position   Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  song     Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, songId])
+  @@index([playlistId, position], name: "idx_playlist_songs_order")
+  @@map("playlist_songs")
+}
+
+// ─── CommentStatus ────────────────────────────────────────────────────────────
+
+enum CommentStatus {
+  VISIBLE
+  HIDDEN
+  DELETED
+}
+
+// ─── Comment ──────────────────────────────────────────────────────────────────
+
+model Comment {
+  id        String        @id @default(uuid()) @db.Char(36)
+  songId    String        @map("song_id") @db.Char(36)
+  userId    String        @map("user_id") @db.Char(36)
+  parentId  String?       @map("parent_id") @db.Char(36)
+  content   String        @db.Text
+  likeCount Int           @default(0) @map("like_count")
+  status    CommentStatus @default(VISIBLE)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  deletedAt DateTime?     @map("deleted_at")
+
+  song    Song      @relation(fields: [songId], references: [id], onDelete: Cascade)
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+
+  @@index([songId, status, parentId], name: "idx_comments_song_status_parent")
+  @@index([userId], name: "idx_comments_user_id")
+  @@index([parentId], name: "idx_comments_parent_id")
+  @@index([createdAt(sort: Desc)], name: "idx_comments_created_at")
+  @@index([likeCount(sort: Desc)], name: "idx_comments_like_count")
+  @@index([deletedAt], name: "idx_comments_deleted_at")
+  @@map("comments")
+}
+// ─── AuditLog ─────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Char(36)
+  adminId    String   @map("admin_id") @db.Char(36)
+  action     String   @db.VarChar(64)
+  resource   String   @db.VarChar(64)
+  resourceId String?  @map("resource_id") @db.VarChar(64)
+  payload    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId], name: "idx_audit_logs_admin_id")
+  @@index([resource, resourceId], name: "idx_audit_logs_resource")
+  @@index([createdAt(sort: Desc)], name: "idx_audit_logs_created_at")
+  @@map("audit_logs")
+}
+// ─── UploadAuditLog ───────────────────────────────────────────────────────────
+
+model UploadAuditLog {
+  id        String   @id @default(uuid()) @db.Char(36)
+  userId    String   @map("user_id") @db.Char(36)
+  fileName  String   @map("file_name") @db.VarChar(255)
+  mimeType  String   @map("mime_type") @db.VarChar(64)
+  fileType  String   @map("file_type") @db.VarChar(16)
+  objectKey String?  @map("object_key") @db.VarChar(512)
+  status    String   @db.VarChar(16)
+  reason    String?  @db.VarChar(512)
+  ip        String?  @db.VarChar(64)
+  userAgent String?  @map("user_agent") @db.VarChar(512)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], name: "idx_upload_audit_user_id")
+  @@index([status], name: "idx_upload_audit_status")
+  @@index([createdAt(sort: Desc)], name: "idx_upload_audit_created_at")
+  @@map("upload_audit_logs")
+}

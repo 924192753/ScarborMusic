@@ -1,0 +1,151 @@
+### ScarborMusic — Admin API Tests
+### Requires ADMIN user cookies (login as admin first)
+
+@baseUrl = http://localhost:3000
+
+### ─── Dashboard ───────────────────────────────────────────────────────────────
+
+# @name dashboardStats
+GET {{baseUrl}}/api/admin/dashboard/stats
+
+### ─── Users ───────────────────────────────────────────────────────────────────
+
+# @name listUsers
+GET {{baseUrl}}/api/admin/users?page=1&pageSize=20
+
+# @name searchUsers
+GET {{baseUrl}}/api/admin/users?q=test&page=1
+
+### Ban user (replace USER_ID)
+# PATCH {{baseUrl}}/api/admin/users/USER_ID
+# Content-Type: application/json
+#
+# { "isActive": false }
+
+### Unban user
+# PATCH {{baseUrl}}/api/admin/users/USER_ID
+# Content-Type: application/json
+#
+# { "isActive": true }
+
+### Change role to ADMIN
+# PATCH {{baseUrl}}/api/admin/users/USER_ID
+# Content-Type: application/json
+#
+# { "roleName": "ADMIN" }
+
+### ─── Songs ───────────────────────────────────────────────────────────────────
+
+# @name listSongs
+GET {{baseUrl}}/api/admin/songs?page=1&pageSize=20
+
+# @name searchSongs
+GET {{baseUrl}}/api/admin/songs?q=pop&status=PUBLISHED
+
+### Publish song (replace SONG_ID)
+# PATCH {{baseUrl}}/api/admin/songs/SONG_ID
+# Content-Type: application/json
+#
+# { "status": "PUBLISHED" }
+
+### Hide song
+# PATCH {{baseUrl}}/api/admin/songs/SONG_ID
+# Content-Type: application/json
+#
+# { "status": "HIDDEN" }
+
+### Delete song
+# DELETE {{baseUrl}}/api/admin/songs/SONG_ID
+
+### Batch delete songs
+# POST {{baseUrl}}/api/admin/songs/batch-delete
+# Content-Type: application/json
+#
+# { "ids": ["uuid-1", "uuid-2"] }
+
+### ─── Comments ────────────────────────────────────────────────────────────────
+
+# @name listComments
+GET {{baseUrl}}/api/admin/comments?page=1&pageSize=20
+
+### Hide comment
+# PATCH {{baseUrl}}/api/admin/comments/COMMENT_ID
+# Content-Type: application/json
+#
+# { "status": "HIDDEN" }
+
+### Restore comment
+# PATCH {{baseUrl}}/api/admin/comments/COMMENT_ID
+# Content-Type: application/json
+#
+# { "status": "VISIBLE" }
+
+### Delete comment
+# PATCH {{baseUrl}}/api/admin/comments/COMMENT_ID
+# Content-Type: application/json
+#
+# { "status": "DELETED" }
+
+### ─── Categories ──────────────────────────────────────────────────────────────
+
+# @name listCategories
+GET {{baseUrl}}/api/admin/categories
+
+### Create category
+# POST {{baseUrl}}/api/admin/categories
+# Content-Type: application/json
+#
+# {
+#   "name": "Jazz",
+#   "slug": "jazz",
+#   "description": "Jazz music"
+# }
+
+### Update category
+# PATCH {{baseUrl}}/api/admin/categories/1
+# Content-Type: application/json
+#
+# { "name": "Jazz & Blues" }
+
+### Delete category
+# DELETE {{baseUrl}}/api/admin/categories/1
+
+### ─── Tags ────────────────────────────────────────────────────────────────────
+
+# @name listTags
+GET {{baseUrl}}/api/admin/tags
+
+### Create tag
+# POST {{baseUrl}}/api/admin/tags
+# Content-Type: application/json
+#
+# { "name": "Chill", "slug": "chill" }
+
+### Update tag
+# PATCH {{baseUrl}}/api/admin/tags/1
+# Content-Type: application/json
+#
+# { "name": "Chill Vibes" }
+
+### Delete tag
+# DELETE {{baseUrl}}/api/admin/tags/1
+
+### ─── Playlists ───────────────────────────────────────────────────────────────
+
+# @name listPlaylists
+GET {{baseUrl}}/api/admin/playlists?page=1
+
+### Hide playlist
+# PATCH {{baseUrl}}/api/admin/playlists/PLAYLIST_ID
+# Content-Type: application/json
+#
+# { "hidden": true }
+
+### Delete playlist
+# DELETE {{baseUrl}}/api/admin/playlists/PLAYLIST_ID
+
+### ─── Permission test (USER role should get 403) ─────────────────────────────
+### Login as regular USER, then:
+
+# GET {{baseUrl}}/api/admin/dashboard/stats
+# Expected: 403 Forbidden

@@ -1,0 +1,29 @@
+# Dependencies & build artifacts
+node_modules
+.next
+out
+coverage
+test-results
+playwright-report
+
+# Git & IDE
+.git
+.gitignore
+.cursor
+*.md
+!DEPLOYMENT.md
+
+# Env (inject at runtime)
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Tests
+tests
+vitest.config.ts
+playwright.config.ts
+
+# Dev tooling
+.husky
+*.log

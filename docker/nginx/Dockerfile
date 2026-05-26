@@ -7,7 +7,8 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY templates/ /etc/nginx/templates/
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh \
-  && mkdir -p /var/www/certbot /var/cache/nginx /etc/nginx/conf.d
+  && mkdir -p /var/www/certbot /var/cache/nginx /etc/nginx/conf.d \
+  && rm -f /etc/nginx/conf.d/default.conf
 
 EXPOSE 80 443
 

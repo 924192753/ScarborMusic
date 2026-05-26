@@ -6,6 +6,9 @@ export DOMAIN
 
 mkdir -p /etc/nginx/conf.d
 
+# 移除镜像自带的 default.conf，否则会显示 "Welcome to nginx!" 而非反代 Web
+rm -f /etc/nginx/conf.d/default.conf
+
 # 公网 IP 作为 DOMAIN 时始终使用 HTTP 模板（Let's Encrypt 不支持纯 IP）
 case "$DOMAIN" in
   *[!0-9.]*|'') USE_HTTP_TEMPLATE=0 ;;

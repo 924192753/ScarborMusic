@@ -75,6 +75,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.
 
 # Prisma CLI with full dependency tree (effect, @prisma/config, engines, …)
 COPY --from=prisma-cli --chown=nextjs:nodejs /cli/node_modules ./prisma-cli/node_modules
+# prisma.config.ts imports dotenv/config — resolved from /app/node_modules
+COPY --from=prisma-cli --chown=nextjs:nodejs /cli/node_modules/dotenv ./node_modules/dotenv
 
 # Prisma Client + MariaDB adapter for Next.js runtime
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma

@@ -1,32 +1,45 @@
 import Redis from 'ioredis'
 
-// Persist the Redis connection across Next.js hot reloads
 const globalForRedis = globalThis as unknown as {
   redis: Redis | undefined
 }
 
+function isNextProductionBuild(): boolean {
+  return (
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.npm_lifecycle_event === 'build'
+  )
+}
+
 function createRedisClient(): Redis {
   const url = process.env.REDIS_URL ?? 'redis://127.0.0.1:6379'
+  const building = isNextProductionBuild()
 
   const client = new Redis(url, {
-    maxRetriesPerRequest: 3,
-    enableReadyCheck: true,
+    // Docker `next build` has no Redis — connect only on first command at runtime
+    lazyConnect: true,
+    maxRetriesPerRequest: building ? 0 : 3,
+    enableReadyCheck: !building,
     retryStrategy(times) {
+      if (building) return null
       if (times > 5) return null
       return Math.min(times * 200, 2000)
     },
-    lazyConnect: false,
   })
 
   client.on('error', (err) => {
-    console.error('[Redis] Connection error:', err.message)
-  })
-
-  client.on('connect', () => {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[Redis] Connected')
+    if (!building) {
+      console.error('[Redis] Connection error:', err.message)
     }
   })
+
+  if (!building) {
+    client.on('connect', () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[Redis] Connected')
+      }
+    })
+  }
 
   return client
 }
@@ -39,9 +52,6 @@ if (process.env.NODE_ENV !== 'production') {
 
 // ─── Cache Helpers ────────────────────────────────────────────────────────────
 
-/**
- * Set a cache entry with an optional TTL in seconds.
- */
 export async function setCache(key: string, value: string, ttlSeconds?: number): Promise<void> {
   if (ttlSeconds !== undefined) {
     await redis.setex(key, ttlSeconds, value)
@@ -50,26 +60,16 @@ export async function setCache(key: string, value: string, ttlSeconds?: number):
   }
 }
 
-/**
- * Get a cached value by key. Returns null if the key does not exist.
- */
 export async function getCache(key: string): Promise<string | null> {
   return redis.get(key)
 }
 
-/**
- * Delete one or more cache keys.
- */
 export async function deleteCache(...keys: string[]): Promise<void> {
   if (keys.length > 0) {
     await redis.del(...keys)
   }
 }
 
-/**
- * Increment a counter atomically and optionally set TTL on first creation.
- * Used for rate limiting.
- */
 export async function incrementCache(key: string, ttlSeconds?: number): Promise<number> {
   const count = await redis.incr(key)
   if (count === 1 && ttlSeconds !== undefined) {
@@ -77,8 +77,6 @@ export async function incrementCache(key: string, ttlSeconds?: number): Promise<
   }
   return count
 }
-
-// ─── Key Builders ─────────────────────────────────────────────────────────────
 
 export const CacheKeys = {
   emailCode: (email: string, type: string) => `email:code:${type}:${email}`,

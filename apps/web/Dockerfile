@@ -15,7 +15,13 @@ COPY packages/prisma ./packages/prisma
 
 RUN npm ci --ignore-scripts
 
-# ─── Stage 2: Builder ───────────────────────────────────────────────────────────
+# ─── Stage 2: Prisma CLI (migrate deploy at container start) ─────────────────
+FROM node:22-alpine AS prisma-cli
+WORKDIR /cli
+
+RUN npm install prisma@7.8.0 dotenv@17.4.2 --omit=dev
+
+# ─── Stage 3: Builder ───────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 WORKDIR /app
 
@@ -45,7 +51,7 @@ RUN npx prisma generate
 
 RUN npm run build
 
-# ─── Stage 3: Runner ────────────────────────────────────────────────────────────
+# ─── Stage 4: Runner ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
 
@@ -61,15 +67,18 @@ ENV HOSTNAME=0.0.0.0
 # Standalone server + static assets
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# public/ may be empty; favicon etc. can be added under /public later
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Prisma schema, migrations, config (runtime migrate deploy)
+# Prisma schema + migrations (runtime migrate deploy)
 COPY --from=builder --chown=nextjs:nodejs /app/packages/prisma ./packages/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
+
+# Prisma CLI with full dependency tree (effect, @prisma/config, engines, …)
+COPY --from=prisma-cli --chown=nextjs:nodejs /cli/node_modules ./prisma-cli/node_modules
+
+# Prisma Client + MariaDB adapter for Next.js runtime
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/adapter-mariadb ./node_modules/@prisma/adapter-mariadb
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/mariadb ./node_modules/mariadb
 
